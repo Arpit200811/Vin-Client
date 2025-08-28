@@ -68,7 +68,6 @@ export async function setupVite(app: Express, server: Server) {
     }
   });
 }
-
 // --- Serve Static Build in Production ---
 export function serveStatic(app: Express, distPath?: string) {
   const finalPath =
