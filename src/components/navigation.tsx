@@ -1,19 +1,15 @@
 import { useAuth } from "../hooks/useAuth";
 import { Button } from "../components/ui/button";
 import { Link, useLocation } from "wouter";
-
 export default function Navigation() {
   const { user } = useAuth();
   const [location] = useLocation();
-
   const handleLogout = () => {
     window.location.href = "/api/logout";
   };
-
   const getInitials = (firstName?: string, lastName?: string) => {
     return `${firstName?.[0] || ""}${lastName?.[0] || ""}`.toUpperCase() || "U";
   };
-
   return (
     <header className="bg-white shadow-sm border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -37,7 +33,6 @@ export default function Navigation() {
               </Link>
             )}
           </nav>
-          
           <div className="flex items-center space-x-4">
             <div className="hidden sm:flex items-center space-x-2">
               <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
