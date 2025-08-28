@@ -3,10 +3,13 @@ import fs from "fs";
 import path from "path";
 import { createServer as createViteServer, createLogger } from "vite";
 import { type Server } from "http";
-import viteConfig from "../vite.config";
 import { nanoid } from "nanoid";
+import viteConfig from "../vite.config";
+import { fileURLToPath } from "url";
 
-const viteLogger = createLogger();
+// --- __dirname equivalent in ESM ---
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // --- Logging Utility ---
 export function log(message: string, source = "express") {
@@ -21,6 +24,8 @@ export function log(message: string, source = "express") {
 
 // --- Setup Vite Dev Middleware ---
 export async function setupVite(app: Express, server: Server) {
+  const viteLogger = createLogger();
+
   const vite = await createViteServer({
     ...viteConfig,
     configFile: false,
@@ -47,7 +52,7 @@ export async function setupVite(app: Express, server: Server) {
 
     try {
       const clientTemplate = path.resolve(
-        import.meta.url,
+        __dirname,
         "..",
         "..",
         "vin-client",
@@ -68,10 +73,11 @@ export async function setupVite(app: Express, server: Server) {
     }
   });
 }
+
 // --- Serve Static Build in Production ---
 export function serveStatic(app: Express, distPath?: string) {
   const finalPath =
-    distPath || path.resolve(import.meta.url, "..", "dist", "public");
+    distPath || path.resolve(__dirname, "..", "..", "vin-client", "dist");
 
   if (!fs.existsSync(finalPath)) {
     throw new Error(
@@ -79,10 +85,11 @@ export function serveStatic(app: Express, distPath?: string) {
     );
   }
 
+  // Serve static files
   app.use(express.static(finalPath));
 
-  // fallback to index.html for SPA routes
-  app.use("*", (_req, res) => {
+  // SPA fallback for all routes
+  app.get("*", (_req, res) => {
     res.sendFile(path.resolve(finalPath, "index.html"));
   });
 }
