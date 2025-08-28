@@ -50,7 +50,7 @@ export async function setupVite(app: Express, server: Server) {
         import.meta.url,
         "..",
         "..",
-        "client",
+        "vin-client",
         "index.html"
       );
 
