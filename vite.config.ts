@@ -19,10 +19,7 @@ export default defineConfig({
   root: path.resolve(__dirname),
   build: {
     outDir: path.resolve(__dirname, "dist/public"), // frontend build goes here
-    emptyOutDir: true,
-    rollupOptions: {
-      input: path.resolve(__dirname, "index.html"), // ensure main HTML entry
-    },
+    emptyOutDir: true, // clears previous build
   },
   server: {
     port: 5173,
