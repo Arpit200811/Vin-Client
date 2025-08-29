@@ -22,7 +22,7 @@ export default defineConfig({
     emptyOutDir: true, // clears previous build
   },
   server: {
-    port: 4000,
+    port: 5173,
     strictPort: true,
     fs: {
       strict: true,
