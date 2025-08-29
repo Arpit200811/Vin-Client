@@ -1,57 +1,46 @@
-import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes.js";
+import express, { Request, Response, NextFunction } from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import path from "path";
-import { log } from "./vite.js";
-import { fileURLToPath } from "url";
+import { registerRoutes } from "./routes.js";
 
 dotenv.config();
 
 const app = express();
 
-// --- Enable JSON and URL-encoded parsing ---
+// JSON & URL parsing
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// --- Enable CORS ---
-app.use(
-  cors({
-    origin: process.env.CLIENT_URL || "*",
-    credentials: true,
-  })
-);
+// CORS
+app.use(cors({
+  origin: process.env.CLIENT_URL || "*",
+  credentials: true,
+}));
 
-// --- API Logging Middleware ---
+// API Logging
 app.use((req, res, next) => {
   const start = Date.now();
-  const reqPath = req.path;
-
-  let capturedJsonResponse: Record<string, any> | undefined;
   const originalResJson = res.json.bind(res);
   res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
+    res.locals.bodyJson = bodyJson;
     return originalResJson(bodyJson, ...args);
   };
-
   res.on("finish", () => {
-    const duration = Date.now() - start;
-    if (reqPath.startsWith("/api")) {
-      let logLine = `${req.method} ${reqPath} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      if (logLine.length > 120) logLine = logLine.slice(0, 119) + "…";
-      log(logLine);
+    if (req.path.startsWith("/api")) {
+      const duration = Date.now() - start;
+      const logLine = `${req.method} ${req.path} ${res.statusCode} in ${duration}ms :: ${JSON.stringify(res.locals.bodyJson)}`;
+      console.log(logLine.length > 120 ? logLine.slice(0, 119) + "…" : logLine);
     }
   });
-
   next();
 });
 
-// --- Register API Routes ---
+// Register API routes
 (async () => {
-  const server = await registerRoutes(app);
+  await registerRoutes(app);
 
-  // --- Global Error Handler ---
+  // Global error handler
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
@@ -59,22 +48,17 @@ app.use((req, res, next) => {
     console.error(err);
   });
 
-  // --- Serve Frontend ---
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = path.dirname(__filename);
-  const distPath = path.join(__dirname, "../public"); 
-
-  app.use(express.static(distPath)); // serve static files
-
-  // SPA fallback for React Router
+  // Serve frontend
+  const distPath = path.resolve("dist/public");
+  app.use(express.static(distPath));
   app.get("*", (_req, res) => {
-    res.sendFile(path.join(distPath, "index.html"));
+    res.sendFile(path.resolve(distPath, "index.html"));
   });
 
-  // --- Start Server ---
+  // Start server
   const port = parseInt(process.env.PORT || "5000", 10);
   const host = process.env.HOST || "0.0.0.0";
-  server.listen(port, host, () => {
-    log(`Backend + Frontend running on http://${host}:${port}`);
+  app.listen(port, host, () => {
+    console.log(`Backend + Frontend running on http://${host}:${port}`);
   });
 })();
