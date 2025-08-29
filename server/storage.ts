@@ -6,7 +6,7 @@ import {
   type InsertVinScan,
   type VinScan,
   type VinScanWithUser,
-} from "@shared/schema";
+} from "../shared/schema.js";
 import { db } from "./db.js";
 import { eq, desc, and, like, gte, lte, count } from "drizzle-orm";
 import { any } from "zod";

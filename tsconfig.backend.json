@@ -9,11 +9,10 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "types": ["node"],
-    "baseUrl": ".",
+    "baseUrl": "./server",       // <- server folder ko base banao
     "paths": {
-      "@shared/*": ["shared/*"]
+      "@shared/*": ["../shared/*"]  // <- server ke relative path se shared
     }
   },
-  "include": ["server/**/*", "shared/**/*"],
-  "exclude": ["server/vite.ts", "../vite.config.ts"]
+  "include": ["server/**/*", "shared/**/*"]
 }

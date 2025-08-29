@@ -68,7 +68,7 @@ app.use((req, res, next) => {
   if (process.env.NODE_ENV === "development") {
     await setupVite(app, server);
   } else {
-    const distPath = path.resolve(__dirname, "..", "vin-client", "dist", "public");
+   const distPath = path.resolve(__dirname, "../public"); 
     serveStatic(app, distPath);
   }
 
