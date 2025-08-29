@@ -4,7 +4,7 @@ import path from "path";
 import { createServer as createViteServer, createLogger } from "vite";
 import { type Server } from "http";
 import { nanoid } from "nanoid";
-import viteConfig from "../vite.config";
+import viteConfig from "../vite.config.js";
 import { fileURLToPath } from "url";
 
 // --- __dirname equivalent in ESM ---
