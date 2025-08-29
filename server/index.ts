@@ -1,10 +1,8 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes.js";
 import dotenv from "dotenv";
-import path from "path";
-import { setupVite, serveStatic, log } from "./vite.js";
-import { fileURLToPath } from "url";
 import cors from "cors";
+import { log } from "./vite.js";
 
 dotenv.config();
 
@@ -17,14 +15,10 @@ app.use(express.urlencoded({ extended: false }));
 // Enable CORS
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    origin: process.env.CLIENT_URL || "*",
     credentials: true,
   })
 );
-
-// Determine __dirname in ESM
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 // --- API Logging Middleware ---
 app.use((req, res, next) => {
@@ -44,7 +38,7 @@ app.use((req, res, next) => {
     if (reqPath.startsWith("/api")) {
       let logLine = `${req.method} ${reqPath} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      if (logLine.length > 80) logLine = logLine.slice(0, 79) + "…";
+      if (logLine.length > 120) logLine = logLine.slice(0, 119) + "…";
       log(logLine);
     }
   });
@@ -64,18 +58,10 @@ app.use((req, res, next) => {
     console.error(err);
   });
 
-  // --- Dev vs Production Handling ---
-  if (process.env.NODE_ENV === "development") {
-    await setupVite(app, server);
-  } else {
-   const distPath = path.resolve(__dirname, "../public"); 
-    serveStatic(app, distPath);
-  }
-
   // --- Start Server ---
   const port = parseInt(process.env.PORT || "5000", 10);
   const host = process.env.HOST || "0.0.0.0";
   server.listen(port, host, () => {
-    log(`Server running on http://${host}:${port}`);
+    log(`Backend API running on http://${host}:${port}`);
   });
 })();
