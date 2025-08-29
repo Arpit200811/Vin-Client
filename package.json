@@ -9,6 +9,7 @@
   "build:backend": "tsc -p tsconfig.backend.json",
   "build": "npm run build:frontend && npm run build:backend",
   "start": "cross-env NODE_ENV=production node dist/server/index.js",
+  "start:backend": "node dist/server/index.js",
   "check": "tsc",
   "db:push": "drizzle-kit push"
 },
