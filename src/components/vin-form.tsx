@@ -311,6 +311,7 @@ import { useToast } from "../hooks/use-toast";
 import { apiRequest } from "../lib/queryClient";
 import { getCurrentLocation } from "../lib/geolocation";
 import { isUnauthorizedError } from "../lib/authUtils";
+import {BASE_URL} from '../lib/Service'
 
 const vinFormSchema = z.object({
   vinNumber: z.string().min(11, "VIN must be at least 11 characters"),
@@ -373,7 +374,7 @@ export default function VinForm({ detectedVin, onScanSaved }: VinFormProps) {
           longitude: location.longitude.toString(),
         }),
       };
-      await apiRequest("POST", `${process.env.BASE_URL}/api/scans`, scanData);
+      await apiRequest("POST", `${BASE_URL}/api/scans`, scanData);
     },
     onSuccess: () => {
       toast({

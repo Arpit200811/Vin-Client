@@ -12,10 +12,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 // CORS
-app.use(cors({
-  origin: process.env.BASE_URL, 
-  credentials: true,              
-}));
+app.use(cors());
 
 // API Logging
 app.use((req, res, next) => {
