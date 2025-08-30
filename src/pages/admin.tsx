@@ -45,7 +45,7 @@ export default function Admin() {
   // Fetch admin stats
   const { data: adminStats = {} as AdminStats } = useQuery<AdminStats>({
     queryKey: ["adminStats"],
-    queryFn: () => apiRequest("GET", "http://127.0.0.1:5000/api/stats/admin"),
+    queryFn: () => apiRequest("GET", `${process.env.BASE_URL}/api/stats/admin`),
     enabled: !!user && user.role === "admin",
   });
 
@@ -54,14 +54,14 @@ export default function Admin() {
     queryKey: ["allScans", appliedFilters],
     queryFn: () => {
       const params = new URLSearchParams(appliedFilters).toString();
-      return apiRequest("GET", `http://127.0.0.1:5000/api/scans?${params}`);
+      return apiRequest("GET", `${process.env.BASE_URL}/api/scans?${params}`);
     },
     enabled: !!user && user.role === "admin",
   });
 
   // Delete scan mutation
   const deleteScanMutation = useMutation({
-    mutationFn: (scanId: string) => apiRequest("DELETE", `http://127.0.0.1:5000/api/scans/${scanId}`),
+    mutationFn: (scanId: string) => apiRequest("DELETE", `${process.env.BASE_URL}/api/scans/${scanId}`),
     onSuccess: () => {
       toast({
         title: "Success",

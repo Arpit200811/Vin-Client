@@ -14,7 +14,7 @@ const useQuery = ({ queryKey, queryFn, retry, refetchOnWindowFocus }) => {
 export function useAuth() {
   const { data: user, isLoading } = useQuery({
     queryKey: ["user"],
-    queryFn: () => ({ id: "demo-user", role: "admin" }), // Mock data
+    queryFn: () => ({ id: "demo-user", role: "admin" }),
     retry: false,
     refetchOnWindowFocus: false,
   });

@@ -5,7 +5,6 @@ import path from "path";
 import { registerRoutes } from "./routes.js";
 
 dotenv.config();
-
 const app = express();
 
 // JSON & URL parsing
@@ -14,8 +13,8 @@ app.use(express.urlencoded({ extended: false }));
 
 // CORS
 app.use(cors({
-  origin: process.env.CLIENT_URL || "*",
-  credentials: true,
+  origin: process.env.BASE_URL, 
+  credentials: true,              
 }));
 
 // API Logging

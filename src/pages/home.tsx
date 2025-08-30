@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React from "react";
 // These are dummy imports for a self-contained environment.
 // In a real project, you would import them from your packages.
 const useToast = () => ({ toast: (options) => console.log(options) });

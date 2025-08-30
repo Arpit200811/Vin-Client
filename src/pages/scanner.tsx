@@ -16,13 +16,13 @@ export default function Scanner() {
 
   const { data: userStats } = useQuery({
     queryKey: ["userStats"],
-    queryFn: () => apiRequest("GET", "http://127.0.0.1:5000/api/stats/user"),
+    queryFn: () => apiRequest("GET", `${process.env.BASE_URL}/api/stats/user`),
     enabled: !!user,
   });
 
   const { data: userScans } = useQuery({
     queryKey: ["userScans"],
-    queryFn: () => apiRequest("GET", "http://127.0.0.1:5000/api/scans"),
+    queryFn: () => apiRequest("GET", `${process.env.BASE_URL}/api/scans`),
     enabled: !!user,
   });
 
