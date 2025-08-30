@@ -373,7 +373,7 @@ export default function VinForm({ detectedVin, onScanSaved }: VinFormProps) {
           longitude: location.longitude.toString(),
         }),
       };
-      await apiRequest("POST", "http://127.0.0.1:5000/api/scans", scanData);
+      await apiRequest("POST", `${process.env.BASE_URL}/api/scans`, scanData);
     },
     onSuccess: () => {
       toast({
