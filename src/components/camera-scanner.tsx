@@ -4,6 +4,7 @@ import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { useToast } from "../hooks/use-toast";
 import { initializeCamera, stopCamera } from "../lib/camera";
+import {BASE_URL} from '../lib/Service'
 
 export default function CameraScanner({ onVinDetected }: { onVinDetected: (vin: string) => void }) {
   const [isCameraActive, setIsCameraActive] = useState(false);
@@ -43,7 +44,7 @@ export default function CameraScanner({ onVinDetected }: { onVinDetected: (vin: 
       formData.append("image", blob, "vin_capture.jpg");
 
       try {
-        const response = await axios.post("http://localhost:5000/api/scan-vin", formData);
+        const response = await axios.post(`${BASE_URL}/api/scan-vin`, formData);
 
         if (response.data && response.data.vin) {
           toast({ title: "VIN Detected!", description: `VIN: ${response.data.vin}` });
