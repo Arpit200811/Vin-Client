@@ -53,8 +53,6 @@ function extractVinFromText(rawText: string): string {
 }
 export async function registerRoutes(app: Express): Promise<Server> {
   await fs.mkdir(uploadPath, { recursive: true });
-
-  // --------------- MAIN OCR VIN SCAN ROUTE ----------------
   app.post("/api/scan-vin", upload.single("image"), async (req, res) => {
     if (!req.file) {
       return res.status(400).json({ error: "No image uploaded" });
@@ -64,14 +62,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const rawText = await performOcrWithApi(filePath, OCR_API_KEY);
       const vin = extractVinFromText(rawText);
       console.log("------ Raw OCR Text from API ------\n", rawText.trim());
-      console.log("------ Final VIN ------\n", vin);
-
       if (!vin) {
         return res.status(404).json({ error: "No valid 17-character VIN found in the image.", rawText });
       }
-
       res.json({ vin, rawText: rawText.trim() });
-
     } catch (error: any) {
       console.error("Scan processing error:", error);
       res.status(500).json({ error: error.message || "OCR processing failed" });
