@@ -11,6 +11,7 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Navigate } from "react-router-dom";
+import { BASE_URL } from "../lib/Service";
 type Scan = {
   id: string;
   vin: string;
@@ -54,14 +55,14 @@ export default function Admin() {
     queryKey: ["allScans", appliedFilters],
     queryFn: () => {
       const params = new URLSearchParams(appliedFilters).toString();
-      return apiRequest("GET", `${process.env.BASE_URL}/api/scans?${params}`);
+      return apiRequest("GET", `${BASE_URL}/api/scans?${params}`);
     },
     enabled: !!user && user.role === "admin",
   });
 
   // Delete scan mutation
   const deleteScanMutation = useMutation({
-    mutationFn: (scanId: string) => apiRequest("DELETE", `${process.env.BASE_URL}/api/scans/${scanId}`),
+    mutationFn: (scanId: string) => apiRequest("DELETE", `${BASE_URL}/api/scans/${scanId}`),
     onSuccess: () => {
       toast({
         title: "Success",
