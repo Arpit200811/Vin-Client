@@ -1,8 +1,3 @@
-/**
- * Initialize camera stream
- * @param facingMode "user" (front) or "environment" (back)
- * @returns MediaStream
- */
 export async function initializeCamera(
   facingMode: "user" | "environment" = "environment"
 ): Promise<MediaStream> {
@@ -22,11 +17,6 @@ export async function initializeCamera(
     throw new Error("Failed to access camera. Please check camera permissions.");
   }
 }
-
-/**
- * Stop all tracks of a given MediaStream
- * @param stream MediaStream
- */
 export function stopCamera(stream: MediaStream): void {
   stream.getTracks().forEach((track) => track.stop());
 }

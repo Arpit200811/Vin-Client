@@ -6,8 +6,6 @@ import { registerRoutes } from "./routes.js";
 
 dotenv.config();
 const app = express();
-
-// JSON & URL parsing
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
