@@ -9,29 +9,24 @@ import fs from "fs/promises";
 import { createReadStream } from "fs"; 
 import axios from "axios";
 import FormData from "form-data";
-
-const OCR_API_KEY: any = process.env.OCR_KEY;
+const OCR_API_KEY:any =process.env.OCR_KEY;
 const VALID_VIN_PREFIXES = ["MD", "1M", "2H", "3N", "5Y", "JH", "KL"];
 const uploadPath = "uploads/";
-
-// Multer storage config
 const storageMulter = multer.diskStorage({
   destination: (req: Request, file: Express.Multer.File, cb) => cb(null, uploadPath),
-  filename: (req: Request, file: Express.Multer.File, cb) => 
-    cb(null, Date.now() + path.extname(file.originalname)),
+  filename: (req: Request, file: Express.Multer.File, cb) => cb(null, Date.now() + path.extname(file.originalname)),
 });
 const upload = multer({ storage: storageMulter });
-
-// OCR function
 async function performOcrWithApi(filePath: string, apiKey: string): Promise<string> {
-  if (!apiKey || apiKey === process.env.OCR_KEY) {
-    console.warn("⚠️ Using default OCR.space API key. Please replace in production.");
+  if (!apiKey || apiKey ===process.env.OCR_KEY) {
+    console.warn("Using a public OCR.space API key. Please replace it for production use.");
   }
   const formData = new FormData();
   formData.append("file", createReadStream(filePath));
   formData.append("apikey", apiKey);
   formData.append("language", "eng");
-  formData.append("OCREngine", "2"); // Better accuracy
+  formData.append("OCREngine", "2"); // Engine 2 is generally better for this task
+
   try {
     const response = await axios.post("https://api.ocr.space/parse/image", formData, {
       headers: formData.getHeaders(),
@@ -43,12 +38,10 @@ async function performOcrWithApi(filePath: string, apiKey: string): Promise<stri
 
     return response.data.ParsedResults[0]?.ParsedText || "";
   } catch (error) {
-    console.error("❌ Axios OCR API error:", error);
+    console.error("Axios request to OCR API failed:", error);
     throw new Error("Failed to communicate with OCR service.");
   }
 }
-
-// Extract VIN logic
 function extractVinFromText(rawText: string): string {
   const cleaned = rawText.replace(/[^A-Z0-9]/gi, "").toUpperCase();
   const vinMatches = cleaned.match(/[A-HJ-NPR-Z0-9]{17}/g) || [];
@@ -58,44 +51,174 @@ function extractVinFromText(rawText: string): string {
     vinMatches[0];
   return bestMatch;
 }
-
-// Register Routes
 export async function registerRoutes(app: Express): Promise<Server> {
   await fs.mkdir(uploadPath, { recursive: true });
 
   // --------------- MAIN OCR VIN SCAN ROUTE ----------------
-  app.post("/api/scan-vin", upload.single("image"), async (req:any, res:any) => {
+  app.post("/api/scan-vin", upload.single("image"), async (req, res) => {
     if (!req.file) {
-      console.log("###################",req.file.image)
       return res.status(400).json({ error: "No image uploaded" });
     }
     const filePath = path.resolve(req.file.path);
-
     try {
       const rawText = await performOcrWithApi(filePath, OCR_API_KEY);
       const vin = extractVinFromText(rawText);
-
-      console.log("------ Raw OCR Text ------\n", rawText.trim());
+      console.log("------ Raw OCR Text from API ------\n", rawText.trim());
       console.log("------ Final VIN ------\n", vin);
 
       if (!vin) {
-        return res.status(404).json({ 
-          error: "No valid 17-character VIN found in the image.", 
-          rawText 
-        });
+        return res.status(404).json({ error: "No valid 17-character VIN found in the image.", rawText });
       }
 
-      // ✅ Image will remain in uploads/ folder permanently
-      res.json({ vin, rawText: rawText.trim(), filePath });
+      res.json({ vin, rawText: rawText.trim() });
 
     } catch (error: any) {
       console.error("Scan processing error:", error);
       res.status(500).json({ error: error.message || "OCR processing failed" });
+    } finally {
+      // Cleanup: always try to delete the uploaded file
+      try {
+        await fs.unlink(filePath);
+      } catch (cleanupError) {
+        console.error("Failed to clean up file:", cleanupError);
+      }
     }
-    // ❌ Do NOT delete file, so image stays in uploads/
   });
 
-  // ---------------- Other existing API routes (unchanged) ----------------
+  // ---------------- Other API routes (unchanged) ----------------
+
+  app.post("/api/users", async (req, res) => {
+    try {
+      const { id, email, firstName, lastName, role } = req.body;
+      const user = await storage.upsertUser({ id, email, firstName, lastName, role: role || "user" });
+      res.status(201).json(user);
+    } catch (error) {
+      console.error("Error creating user:", error);
+      res.status(500).json({ message: "Failed to create user" });
+    }
+  });
+
+  app.get("/api/auth/user", async (req, res) => {
+    try {
+      const user = {
+        id: "public_access_user_id",
+        email: "public@example.com",
+        firstName: "Public",
+        lastName: "User",
+        role: "guest",
+      };
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  app.post("/api/scans", async (req, res) => {
+    try {
+      const userId = "public_access_user_id";
+      const scanData = insertVinScanSchema.parse({ ...req.body, userId });
+      const scan = await storage.createVinScan(scanData);
+      res.json(scan);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Validation error", errors: error.errors });
+      } else {
+        console.error("Error creating scan:", error);
+        res.status(500).json({ message: "Failed to create scan" });
+      }
+    }
+  });
+
+  app.get("/api/scans", async (req, res) => {
+    try {
+      const { userId, vinNumber, dateFrom, dateTo, limit = 50, offset = 0 } = req.query;
+      const filters: { [key: string]: any } = {
+        limit: parseInt(limit as string, 10),
+        offset: parseInt(offset as string, 10),
+      };
+      if (userId) filters.userId = userId as string;
+      if (vinNumber) filters.vinNumber = vinNumber as string;
+      if (dateFrom) filters.dateFrom = new Date(dateFrom as string);
+      if (dateTo) filters.dateTo = new Date(dateTo as string);
+      const scans = await storage.getAllVinScans(filters);
+      res.json(scans);
+    } catch (error) {
+      console.error("Error fetching scans:", error);
+      res.status(500).json({ message: "Failed to fetch scans" });
+    }
+  });
+
+  app.get("/api/scans/:id", async (req, res) => {
+    try {
+      const scan = await storage.getVinScanById(req.params.id);
+      if (!scan) return res.status(404).json({ message: "Scan not found" });
+      res.json(scan);
+    } catch (error) {
+      console.error("Error fetching scan:", error);
+      res.status(500).json({ message: "Failed to fetch scan" });
+    }
+  });
+
+  app.put("/api/scans/:id", async (req, res) => {
+    try {
+      const updateData = insertVinScanSchema.partial().parse(req.body);
+      const scan = await storage.updateVinScan(req.params.id, updateData);
+      if (!scan) return res.status(404).json({ message: "Scan not found" });
+      res.json(scan);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Validation error", errors: error.errors });
+      } else {
+        console.error("Error updating scan:", error);
+        res.status(500).json({ message: "Failed to update scan" });
+      }
+    }
+  });
+
+  app.delete("/api/scans/:id", async (req, res) => {
+    try {
+      const success = await storage.deleteVinScan(req.params.id);
+      if (!success) return res.status(404).json({ message: "Scan not found" });
+      res.json({ message: "Scan deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting scan:", error);
+      res.status(500).json({ message: "Failed to delete scan" });
+    }
+  });
+
+  app.delete("/api/scans", async (req, res) => {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids)) return res.status(400).json({ message: "IDs array is required" });
+      const deletedCount = await storage.deleteVinScans(ids);
+      res.json({ message: `${deletedCount} scans deleted successfully` });
+    } catch (error) {
+      console.error("Error bulk deleting scans:", error);
+      res.status(500).json({ message: "Failed to delete scans" });
+    }
+  });
+
+  app.get("/api/stats/user", async (req, res) => {
+    try {
+      const userId = "public_access_user_id";
+      const stats = await storage.getUserScanStats(userId);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching user stats:", error);
+      res.status(500).json({ message: "Failed to fetch statistics" });
+    }
+  });
+
+  app.get("/api/stats/admin", async (req, res) => {
+    try {
+      const stats = await storage.getAdminStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching admin stats:", error);
+      res.status(500).json({ message: "Failed to fetch statistics" });
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;
