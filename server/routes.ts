@@ -6,9 +6,9 @@ import fs from "fs/promises";
 import { createReadStream } from "fs";
 import axios from "axios";
 import FormData from "form-data";
-import { z } from "zod";
 import { storage } from "./storage.js"; // Your storage module
 import { insertVinScanSchema } from "../shared/schema.js"; // Zod schema
+import { z } from "zod";
 
 const OCR_API_KEY: any = process.env.OCR_KEY;
 const VALID_VIN_PREFIXES = ["MD", "1M", "2H", "3N", "5Y", "JH", "KL"];
@@ -52,50 +52,53 @@ async function performOcrWithApi(filePath: string, apiKey: string): Promise<stri
 
 // ----- VIN Extraction & Validation -----
 function extractVinFromText(rawText: string): string {
-  // Uppercase, remove spaces, invalid VIN letters (I, O, Q) and special chars
-  const cleaned = rawText.toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g, "");
+  // Remove spaces and special characters, but keep all letters A-Z and digits
+  const cleaned = rawText.toUpperCase().replace(/[^A-Z0-9]/g, "");
 
-  // Match sequences of exactly 17 valid VIN characters
-  const vinMatches = cleaned.match(/[A-HJ-NPR-Z0-9]{17}/g) || [];
-
+  // Match sequences of exactly 17 characters
+  const vinMatches = cleaned.match(/[A-Z0-9]{17}/g) || [];
   if (vinMatches.length === 0) return "";
 
   // Prefer VINs starting with known prefixes
-  const bestMatch:any =
+  const bestMatch: any =
     vinMatches.find(v => VALID_VIN_PREFIXES.some(prefix => v.startsWith(prefix))) ||
     vinMatches[0];
 
-  // Final cleanup: remove any lingering spaces
-  return bestMatch.split(" ").join("");
+  return bestMatch;
 }
 
 // ----- Express Routes -----
 export async function registerRoutes(app: Express): Promise<Server> {
   await fs.mkdir(uploadPath, { recursive: true });
 
-  // -------- VIN Scan Route --------
   app.post("/api/scan-vin", upload.single("image"), async (req, res) => {
     if (!req.file) {
       return res.status(400).json({ error: "No image uploaded" });
     }
 
     const filePath = path.resolve(req.file.path);
-
     try {
+      // Step 1: OCR
       const rawText = await performOcrWithApi(filePath, OCR_API_KEY);
-      const vin = extractVinFromText(rawText);
 
-      console.log("------ Raw OCR Text ------\n", rawText.trim());
+      // Step 2: Clean OCR text (remove spaces & special chars)
+      const cleanedRawText = rawText.split(" ").join("").toUpperCase();
+
+      // Step 3: Extract VIN
+      const vin = extractVinFromText(cleanedRawText);
+
+      console.log("------ Raw OCR Text ------\n", rawText);
+      console.log("------ Cleaned Text ------\n", cleanedRawText);
       console.log("------ Extracted VIN ------", vin);
 
       if (!vin) {
         return res.status(404).json({
           error: "No valid 17-character VIN found in the image.",
-          rawText,
+          rawText: cleanedRawText,
         });
       }
 
-      res.json({ vin, rawText: rawText.trim() });
+      res.json({ vin, rawText: cleanedRawText });
     } catch (error: any) {
       console.error("Scan processing error:", error);
       res.status(500).json({ error: error.message || "OCR processing failed" });
@@ -107,7 +110,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
   });
-
   // -------- User Routes --------
   app.post("/api/users", async (req, res) => {
     try {
