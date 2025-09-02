@@ -73,7 +73,7 @@ function extractVinFromText(rawText: string): string {
   if (vinMatches.length === 0) return "";
 
   // Prefer VINs starting with known prefixes
-  const bestMatch: string =
+  const bestMatch: any=
     vinMatches.find(v => VALID_VIN_PREFIXES.some(prefix => v.startsWith(prefix))) ||
     vinMatches[0];
 
