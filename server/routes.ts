@@ -52,11 +52,11 @@ async function performOcrWithApi(filePath: string, apiKey: string): Promise<stri
 
 // ----- VIN Extraction & Validation -----
 function extractVinFromText(rawText: string): string {
-  // Remove spaces and special characters, but keep all letters A-Z and digits
-  const cleaned = rawText.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  // Remove ALL special characters and spaces, keep only valid VIN chars (A–H, J–N, P, R–Z, 0–9)
+  const cleaned = rawText.toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g, "");
 
   // Match sequences of exactly 17 characters
-  const vinMatches = cleaned.match(/[A-Z0-9]{17}/g) || [];
+  const vinMatches = cleaned.match(/[A-HJ-NPR-Z0-9]{17}/g) || [];
   if (vinMatches.length === 0) return "";
 
   // Prefer VINs starting with known prefixes
@@ -81,8 +81,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Step 1: OCR
       const rawText = await performOcrWithApi(filePath, OCR_API_KEY);
 
-      // Step 2: Clean OCR text (remove spaces & special chars)
-      const cleanedRawText = rawText.split(" ").join("").toUpperCase();
+      // Step 2: Clean OCR text -> remove all spaces & special chars
+      const cleanedRawText = rawText.replace(/[^A-HJ-NPR-Z0-9]/gi, "").toUpperCase();
 
       // Step 3: Extract VIN
       const vin = extractVinFromText(cleanedRawText);
@@ -110,6 +110,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
   });
+
   // -------- User Routes --------
   app.post("/api/users", async (req, res) => {
     try {
