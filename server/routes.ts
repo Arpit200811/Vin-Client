@@ -52,11 +52,11 @@ async function performOcrWithApi(filePath: string, apiKey: string): Promise<stri
 
 // ----- VIN Extraction & Validation -----
 function extractVinFromText(rawText: string): string {
-  // Remove ALL special characters and spaces, keep only valid VIN chars (A–H, J–N, P, R–Z, 0–9)
-  const cleaned = rawText.toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g, "");
+  // Remove spaces and special characters, but keep all letters A-Z and digits
+  const cleaned = rawText.toUpperCase().replace(/[^A-Z0-9]/g, "");
 
   // Match sequences of exactly 17 characters
-  const vinMatches = cleaned.match(/[A-HJ-NPR-Z0-9]{17}/g) || [];
+  const vinMatches = cleaned.match(/[A-Z0-9]{17}/g) || [];
   if (vinMatches.length === 0) return "";
 
   // Prefer VINs starting with known prefixes
@@ -70,27 +70,18 @@ function extractVinFromText(rawText: string): string {
 // ----- Express Routes -----
 export async function registerRoutes(app: Express): Promise<Server> {
   await fs.mkdir(uploadPath, { recursive: true });
-
   app.post("/api/scan-vin", upload.single("image"), async (req, res) => {
     if (!req.file) {
       return res.status(400).json({ error: "No image uploaded" });
     }
-
     const filePath = path.resolve(req.file.path);
     try {
-      // Step 1: OCR
       const rawText = await performOcrWithApi(filePath, OCR_API_KEY);
-
-      // Step 2: Clean OCR text -> remove all spaces & special chars
-      const cleanedRawText = rawText.replace(/[^A-HJ-NPR-Z0-9]/gi, "").toUpperCase();
-
-      // Step 3: Extract VIN
+      const cleanedRawText = rawText.split(" ").join("").toUpperCase();
       const vin = extractVinFromText(cleanedRawText);
-
       console.log("------ Raw OCR Text ------\n", rawText);
       console.log("------ Cleaned Text ------\n", cleanedRawText);
       console.log("------ Extracted VIN ------", vin);
-
       if (!vin) {
         return res.status(404).json({
           error: "No valid 17-character VIN found in the image.",
@@ -110,7 +101,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
   });
-
   // -------- User Routes --------
   app.post("/api/users", async (req, res) => {
     try {
