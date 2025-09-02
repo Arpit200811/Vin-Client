@@ -113,7 +113,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: error.message || "OCR processing failed" });
     } finally {
       try {
-        await fs.unlink(filePath);
+        // await fs.unlink(filePath);
       } catch (cleanupError) {
         console.error("Failed to clean up file:", cleanupError);
       }
@@ -255,7 +255,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch statistics" });
     }
   });
-
   const httpServer = createServer(app);
   return httpServer;
 }
