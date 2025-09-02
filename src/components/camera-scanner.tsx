@@ -260,3 +260,10 @@ export default function CameraScanner({
     </Card>
   );
 }
+
+
+
+
+
+
+
