@@ -24,6 +24,7 @@ const upload = multer({ storage: storageMulter });
 
 // ----- OCR Function -----
 async function performOcrWithApi(filePath: string, apiKey: string): Promise<string> {
+  console.log("DEBUG: Key being used by API:", apiKey);
   if (!apiKey || apiKey === process.env.OCR_KEY) {
     console.warn("Using a public OCR.space API key. Please replace it for production use.");
   }
@@ -79,11 +80,9 @@ function extractVinFromText(rawText: string): string {
 
   return bestMatch;
 }
-
 // ----- Express Routes -----
 export async function registerRoutes(app: Express): Promise<Server> {
   await fs.mkdir(uploadPath, { recursive: true });
-
   // ---------------- Express Route ----------------
   app.post("/api/scan-vin", upload.single("image"), async (req, res) => {
     if (!req.file) {
@@ -92,10 +91,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const filePath = path.resolve(req.file.path);
     try {
       const rawText = await performOcrWithApi(filePath, OCR_API_KEY);
-
       // Clean & Extract VIN
       const vin = extractVinFromText(rawText);
-
       console.log("------ Raw OCR Text ------\n", rawText);
       console.log("------ Extracted VIN ------", vin);
 
