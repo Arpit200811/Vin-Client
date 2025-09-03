@@ -273,7 +273,7 @@ export default function CameraScanner({ onVinDetected }: { onVinDetected: (vin: 
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [facingMode, setFacingMode] = useState<"user" | "environment">("environment");
   const [model, setModel] = useState<tmImage.CustomMobileNet | null>(null);
-  const [predictions, setPredictions] = useState<tmImage.Prediction[]>([]);
+  const [predictions, setPredictions] = useState<Array<{ className: string; probability: number }>>([]);
   const [isScanning, setIsScanning] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
