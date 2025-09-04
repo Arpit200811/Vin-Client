@@ -2,19 +2,31 @@ import { useState, useRef, useEffect } from "react";
 import Webcam from "react-webcam";
 import * as tmImage from "@teachablemachine/image";
 import axios from "axios";
+import { BASE_URL } from "../lib/Service";
 
-export default function CameraScanner({ onVinDetected }: { onVinDetected: (vin: string) => void }) {
+export default function CameraScanner({
+  onVinDetected,
+}: {
+  onVinDetected: (vin: string) => void;
+}) {
   const webcamRef = useRef<Webcam>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [model, setModel] = useState<tmImage.CustomMobileNet | null>(null);
-  const [predictions, setPredictions] = useState<Array<{ className: string; probability: number }>>([]);
+  const [predictions, setPredictions] = useState<
+    Array<{ className: string; probability: number }>
+  >([]);
   const [isScanning, setIsScanning] = useState(false);
+
   const MODEL_URL = "https://teachablemachine.withgoogle.com/models/E2_QPc8m4/";
-  const API_URL = "http://localhost:5000/api/scan-vin";
+
+  // Load model once
   useEffect(() => {
     const loadModel = async () => {
       try {
-        const loadedModel = await tmImage.load(MODEL_URL + "model.json", MODEL_URL + "metadata.json");
+        const loadedModel = await tmImage.load(
+          MODEL_URL + "model.json",
+          MODEL_URL + "metadata.json"
+        );
         setModel(loadedModel);
         console.log("Model loaded ✅");
       } catch (err) {
@@ -24,13 +36,17 @@ export default function CameraScanner({ onVinDetected }: { onVinDetected: (vin: 
     };
     loadModel();
   }, []);
+
+  // Handle capture & prediction
   const handleCapture = async () => {
-    if (!webcamRef.current || !model) return alert("Camera or model not ready!");
-    setIsScanning(true);
+    if (!webcamRef.current || !model)
+      return alert("Camera or model not ready!");
     const screenshotBase64 = webcamRef.current.getScreenshot();
     if (!screenshotBase64) return alert("Screenshot failed!");
+
     const img = new Image();
     img.src = screenshotBase64;
+
     img.onload = async () => {
       const rectWidth = 400;
       const rectHeight = 80;
@@ -39,46 +55,78 @@ export default function CameraScanner({ onVinDetected }: { onVinDetected: (vin: 
       canvas.height = rectHeight;
       const ctx = canvas.getContext("2d");
       if (!ctx) return alert("Canvas error");
-      const sx = (img.width / 2) - rectWidth / 2;
-      const sy = (img.height / 2) - rectHeight / 2;
-      ctx.drawImage(img, sx, sy, rectWidth, rectHeight, 0, 0, rectWidth, rectHeight);
+
+      const sx = img.width / 2 - rectWidth / 2;
+      const sy = img.height / 2 - rectHeight / 2;
+      ctx.drawImage(
+        img,
+        sx,
+        sy,
+        rectWidth,
+        rectHeight,
+        0,
+        0,
+        rectWidth,
+        rectHeight
+      );
+
       try {
         const prediction = await model.predict(canvas);
         setPredictions(prediction);
+        // Find highest probability prediction
         const topPrediction = prediction.reduce((prev, curr) =>
           prev.probability > curr.probability ? prev : curr
         );
         const classNameLower = topPrediction.className.toLowerCase();
-        if (!classNameLower.includes("metal") || topPrediction.probability <= 0.9) {
-          alert(`${topPrediction.className} detected with ${(topPrediction.probability * 100).toFixed(2)}%`);
+        const probability = topPrediction.probability;
+        if (classNameLower.includes("paper") && probability >= 0.9) {
+          alert(`VIN on Paper ❌ (${(probability * 100).toFixed(2)}%)`);
           setIsScanning(false);
+          return;
         }
-        else{
-          setIsScanning(true)
+        if (classNameLower.includes("matel vin") && probability >= 0.9) {
+          alert(`Metal detected ✅ ${(probability * 100).toFixed(2)}%`);
+          setIsScanning(true);
+          canvas.toBlob(
+            async (blob) => {
+              if (!blob) return alert("Blob creation failed");
+              const formData = new FormData();
+              formData.append("image", blob, "vin_metal.jpg");
+
+              try {
+                const response = await axios.post(
+                  `${BASE_URL}/api/scan-vin`,
+                  formData,
+                  {
+                    headers: { "Content-Type": "multipart/form-data" },
+                  }
+                );
+                console.log("Backend response:", response.data);
+                if (response.data.vin) {
+                  alert(`Metal VIN Uploaded ✅ VIN: ${response.data.vin}`);
+                  onVinDetected(response.data.vin);
+                } else {
+                  alert("VIN not recognized");
+                }
+              } catch (err) {
+                console.error("Upload error:", err);
+                alert("Upload failed!");
+              } finally {
+                setIsScanning(false);
+              }
+            },
+            "image/jpeg",
+            0.95
+          );
+          return;
         }
-        
-        canvas.toBlob(async (blob) => {
-          if (!blob) return alert("Blob creation failed");
-          const formData = new FormData();
-          formData.append("image", blob, "vin_metal.jpg");
-          try {
-            const response = await axios.post(API_URL, formData, {
-              headers: { "Content-Type": "multipart/form-data" },
-            });
-            console.log("Backend response:", response.data);
-            if (response.data.vin) {
-              alert(`Metal VIN Uploaded ✅ VIN: ${response.data.vin}`);
-              onVinDetected(response.data.vin);
-            } else {
-              alert("VIN not recognized");
-            }
-          } catch (err) {
-            console.error("Upload error:", err);
-            alert("Upload failed!");
-          } finally {
-            setIsScanning(false);
-          }
-        }, "image/jpeg", 0.95);
+        // --- OTHER CASES ---
+        // alert(
+        //   `Surface unclear ❓ ${topPrediction.className} (${(
+        //     probability * 100
+        //   ).toFixed(2)}%)`
+        // );
+        // setIsScanning(false);
       } catch (err) {
         console.error("Prediction error:", err);
         alert("Prediction failed!");
@@ -98,12 +146,16 @@ export default function CameraScanner({ onVinDetected }: { onVinDetected: (vin: 
             videoConstraints={{ facingMode: "environment" }}
             className="w-[400px] h-[300px] border"
           />
+          {/* Yellow scanning box */}
           <div className="absolute border-2 border-yellow-400 w-[400px] h-[80px] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none rounded-md"></div>
         </div>
       )}
 
       <div className="flex space-x-2">
-        <button onClick={() => setIsCameraActive(prev => !prev)} disabled={isScanning}>
+        <button
+          onClick={() => setIsCameraActive((prev) => !prev)}
+          disabled={isScanning}
+        >
           {isCameraActive ? "Stop Camera" : "Start Camera"}
         </button>
 
@@ -125,75 +177,3 @@ export default function CameraScanner({ onVinDetected }: { onVinDetected: (vin: 
     </div>
   );
 }
-
-
-
-
-
-
-
-
-// import { useState, useRef } from "react";
-// import Webcam from "react-webcam";
-
-// export default function CameraScanner() {
-//   const webcamRef = useRef<Webcam>(null);
-//   const [isCameraActive, setIsCameraActive] = useState(false);
-//   const BASE_URL = "http://localhost:5000"; 
-//   // Screenshot capture + backend bhejna
-//   const captureAndSend = async () => {
-//     if (!webcamRef.current) return console.error("❌ Webcam not ready");
-
-//     // Screenshot as Base64
-//     const screenshotBase64 = webcamRef.current.getScreenshot();
-//     if (!screenshotBase64) return console.error("❌ Screenshot failed");
-
-//     console.log("✅ Screenshot captured:", screenshotBase64.substring(0, 100));
-
-//     // Convert base64 → Blob
-//     const res = await fetch(screenshotBase64);
-//     const blob = await res.blob();
-
-//     console.log("✅ Blob created:", blob);
-
-//     // FormData for backend
-//     const formData = new FormData();
-//     formData.append("image", blob, "vin_capture.jpg");
-
-//     try {
-//       const response = await fetch(`${BASE_URL}/api/scan-vin`, {
-//         method: "POST",
-//         body: formData,
-//       });
-
-//       const data = await response.json();
-//       console.log("✅ Backend response:", data);
-//     } catch (err) {
-//       console.error("❌ Upload failed:", err);
-//     }
-//   };
-
-//   return (
-//     <div>
-//       {isCameraActive && (
-//         <Webcam
-//           ref={webcamRef}
-//           audio={false}
-//           screenshotFormat="image/jpeg"
-//           videoConstraints={{ facingMode: "environment" }}
-//           className="w-[400px] h-[300px] border"
-//         />
-//       )}
-
-//       <div style={{ marginTop: "1rem" }}>
-//         <button onClick={() => setIsCameraActive((prev) => !prev)}>
-//           {isCameraActive ? "Stop Camera" : "Start Camera"}
-//         </button>
-
-//         <button onClick={captureAndSend} disabled={!isCameraActive} style={{ marginLeft: "10px" }}>
-//           Capture & Send
-//         </button>
-//       </div>
-//     </div>
-//   );
-// }
