@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { useToast } from "../hooks/use-toast";
 import { initializeCamera, stopCamera } from "../lib/camera";
 import * as tmImage from "@teachablemachine/image";
+import axios from "axios";
 import { BASE_URL } from "../lib/Service";
 
 export default function CameraScanner({
@@ -123,19 +124,22 @@ export default function CameraScanner({
             formData.append("image", blob, "vin_metal.jpg");
 
             try {
-              const response = await fetch(`${BASE_URL}/api/scan-vin`, {
-                method: "POST",
-                body: formData,
-              });
+              const response = await axios.post(
+                `${BASE_URL}/api/scan-vin`,
+                formData,
+                {
+                  headers: {
+                    "Content-Type": "multipart/form-data",
+                  },
+                }
+              );
 
-              const data = await response.json();
-
-              if (data.vin) {
+              if (response.data.vin) {
                 toast({
                   title: "Metal VIN Uploaded ✅",
-                  description: `VIN: ${data.vin}`,
+                  description: `VIN: ${response.data.vin}`,
                 });
-                onVinDetected(data.vin);
+                onVinDetected(response.data.vin);
               } else {
                 toast({
                   title: "VIN not recognized",
@@ -143,7 +147,7 @@ export default function CameraScanner({
                 });
               }
             } catch (err) {
-              console.error(err);
+              console.error("Upload error:", err);
               toast({ title: "Upload failed", variant: "destructive" });
             }
           },
