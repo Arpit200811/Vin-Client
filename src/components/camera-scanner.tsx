@@ -268,6 +268,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { useToast } from "../hooks/use-toast";
 import { initializeCamera, stopCamera } from "../lib/camera";
 import * as tmImage from "@teachablemachine/image";
+import {BASE_URL } from '../lib/Service'
 
 export default function CameraScanner({ onVinDetected }: { onVinDetected: (vin: string) => void }) {
   const [isCameraActive, setIsCameraActive] = useState(false);
@@ -358,7 +359,7 @@ export default function CameraScanner({ onVinDetected }: { onVinDetected: (vin: 
           formData.append("image", blob, "vin_metal.jpg");
 
           try {
-            const response = await fetch("/api/scan-vin", {
+            const response = await fetch(`${BASE_URL}/api/scan-vin`, {
               method: "POST",
               body: formData,
             });
