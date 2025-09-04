@@ -280,7 +280,7 @@ export default function CameraScanner({ onVinDetected }: { onVinDetected: (vin: 
   const streamRef = useRef<MediaStream | null>(null);
   const { toast } = useToast();
 
-  const MODEL_URL = "https://teachablemachine.withgoogle.com/models/BA5rx_wwi/"; // Replace with your model URL
+  const MODEL_URL = "https://teachablemachine.withgoogle.com/models/E2_QPc8m4/"; // Replace with your model URL
 
   useEffect(() => {
     const loadModel = async () => {
