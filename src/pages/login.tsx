@@ -26,7 +26,7 @@ export default function Login() {
     resolver: yupResolver(schema),
   });
   const onSubmit = async (data:any) => {
-    const response=await axios.post('http://localhost:5000/api/local-login',data)
+    const response=await axios.post(`${BASE_URL}/api/local-login`,data)
     if(response.data.status==200){
       alert(response.data.message);
       navigate("/scanner")
