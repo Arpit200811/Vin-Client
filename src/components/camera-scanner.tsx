@@ -102,13 +102,14 @@ export default function CameraScanner({
               if (!blob) return toast.error("Blob creation failed");
               const formData = new FormData();
               formData.append("image", blob, "vin_metal.jpg");
-
               try {
                 const response = await axios.post(
                   `${BASE_URL}/api/scan-vin`,
                   formData,
                   {
-                    headers: { "Content-Type": "multipart/form-data" },
+                    headers: {
+                      "Content-Type": "multipart/form-data",
+                    },
                   }
                 );
                 console.log("Backend response:", response.data);

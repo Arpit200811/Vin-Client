@@ -2,9 +2,10 @@ import express, { Request, Response, NextFunction } from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import path from "path";
-import { registerRoutes } from "./routes.js";
+// import { registerRoutes } from "./routes.js";
 import fileUpload from "express-fileupload";
 import { fileURLToPath } from "url";
+import { appRouter } from "./routes.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -18,14 +19,8 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(
-  fileUpload({
-    useTempFiles: true,      
-    tempFileDir: "/tmp/",     
-    createParentPath: true,
-    parseNested: true         
-  })
+  fileUpload()
 );
-
 // Serve uploaded files
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use((req, res, next) => {
@@ -44,10 +39,8 @@ app.use((req, res, next) => {
   });
   next();
 });
-
-// Register API routes
 (async () => {
-  await registerRoutes(app);
+  app.use(appRouter)
 
   // Global error handler
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

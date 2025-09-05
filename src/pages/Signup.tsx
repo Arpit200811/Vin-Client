@@ -42,15 +42,13 @@ export default function Signup() {
       formData.append("email", data.email);
       formData.append("firstName", data.firstName);
       formData.append("lastName", data.lastName);
-      formData.append("password", data.password); // append password
+      formData.append("password", data.password);
       formData.append("role", "user");
 
       if (data.profileImage && data.profileImage[0]) {
         formData.append("profileImage", data.profileImage[0]);
       }
-
       await axios.post(`${BASE_URL}/api/users`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
       });
 
       alert("Signup successful ✅");
