@@ -42,24 +42,17 @@ export const vinScans = pgTable("vin_scans", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id),
   vinNumber: varchar("vin_number", { length: 17 }).notNull(),
-  
-  // User provided information
   userName: varchar("user_name").notNull(),
   userIdField: varchar("user_id_field").notNull(),
   mobileNumber: varchar("mobile_number").notNull(),
   vehicleModel: varchar("vehicle_model").notNull(),
   vehicleColor: varchar("vehicle_color").notNull(),
-  
-  // Auto-detected information
   scanTimestamp: timestamp("scan_timestamp").defaultNow(),
   latitude: decimal("latitude", { precision: 10, scale: 8 }),
   longitude: decimal("longitude", { precision: 11, scale: 8 }),
-  
-  // Scan metadata
   materialConfirmed: boolean("material_confirmed").default(false),
   ocrAttempts: integer("ocr_attempts").default(1),
   scanStatus: varchar("scan_status").notNull().default("complete"), // 'complete', 'failed', 'processing'
-  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

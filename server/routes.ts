@@ -91,19 +91,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const filePath = path.resolve(req.file.path);
     try {
       const rawText = await performOcrWithApi(filePath, OCR_API_KEY);
-      // Clean & Extract VIN
       const vin = extractVinFromText(rawText);
-      console.log("------ Raw OCR Text ------\n", rawText);
-      console.log("------ Extracted VIN ------", vin);
-
-      // Strict VIN length check
       if (!vin || vin.length !== 17) {
         return res.status(404).json({
           error: "No valid 17-character VIN found in the image.",
           rawText: normalizeVinChars(rawText.toUpperCase()).replace(/[^A-Z0-9]/g, ""),
         });
       }
-
       res.json({ vin });
     } catch (error: any) {
       console.error("Scan processing error:", error);
@@ -144,8 +138,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch user" });
     }
   });
-
-  // -------- VIN Scan CRUD Routes --------
   app.post("/api/scans", async (req, res) => {
     try {
       const userId = "public_access_user_id";
