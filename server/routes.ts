@@ -8,50 +8,42 @@ import axios from "axios";
 import FormData from "form-data";
 import { storage } from "./storage.js"; // Your storage module
 import { insertVinScanSchema } from "../shared/schema.js"; // Zod schema
+import { handleFileUpload } from "./fileUpload";
 import { z } from "zod";
+import { error } from "console";
 
 const OCR_API_KEY: any = process.env.OCR_KEY;
 const VALID_VIN_PREFIXES = ["MD", "1M", "2H", "3N", "5Y", "JH", "KL"];
 const uploadPath = "uploads/";
-
-// ----- Multer setup -----
 const storageMulter = multer.diskStorage({
   destination: (req: Request, file: Express.Multer.File, cb) => cb(null, uploadPath),
   filename: (req: Request, file: Express.Multer.File, cb) =>
     cb(null, Date.now() + path.extname(file.originalname)),
 });
 const upload = multer({ storage: storageMulter });
-
-// ----- OCR Function -----
 async function performOcrWithApi(filePath: string, apiKey: string): Promise<string> {
   console.log("DEBUG: Key being used by API:", apiKey);
   if (!apiKey || apiKey === process.env.OCR_KEY) {
     console.warn("Using a public OCR.space API key. Please replace it for production use.");
   }
-
   const formData = new FormData();
   formData.append("file", createReadStream(filePath));
   formData.append("apikey", apiKey);
   formData.append("language", "eng");
   formData.append("OCREngine", "2");
-
   try {
     const response = await axios.post("https://api.ocr.space/parse/image", formData, {
       headers: formData.getHeaders(),
     });
-
     if (response.data.IsErroredOnProcessing) {
       throw new Error(`OCR API Error: ${response.data.ErrorMessage}`);
     }
-
     return response.data.ParsedResults[0]?.ParsedText || "";
   } catch (error) {
     console.error("Axios request to OCR API failed:", error);
     throw new Error("Failed to communicate with OCR service.");
   }
 }
-
-// ---------------- Cyrillic to English Normalization ----------------
 function normalizeVinChars(text: string): string {
   const map: Record<string, string> = {
     "А": "A", "В": "B", "Е": "E", "К": "K", "М": "M",
@@ -60,30 +52,18 @@ function normalizeVinChars(text: string): string {
   };
   return text.replace(/[А-Я]/g, char => map[char] || char);
 }
-
-// ---------------- VIN Extraction ----------------
 function extractVinFromText(rawText: string): string {
-  // Normalize Cyrillic → English
   const normalized = normalizeVinChars(rawText.toUpperCase());
-
-  // Allow only A-Z and 0-9
   const cleaned = normalized.replace(/[^A-Z0-9]/g, "");
-
-  // Match sequences of exactly 17 characters
   const vinMatches = cleaned.match(/[A-Z0-9]{17}/g) || [];
   if (vinMatches.length === 0) return "";
-
-  // Prefer VINs starting with known prefixes
-  const bestMatch: any=
+  const bestMatch: any =
     vinMatches.find(v => VALID_VIN_PREFIXES.some(prefix => v.startsWith(prefix))) ||
     vinMatches[0];
-
   return bestMatch;
 }
-// ----- Express Routes -----
 export async function registerRoutes(app: Express): Promise<Server> {
   await fs.mkdir(uploadPath, { recursive: true });
-  // ---------------- Express Route ----------------
   app.post("/api/scan-vin", upload.single("image"), async (req, res) => {
     if (!req.file) {
       return res.status(400).json({ error: "No image uploaded" });
@@ -110,18 +90,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
   });
-
-  // -------- User Routes --------
   app.post("/api/users", async (req, res) => {
-    try {
-      const { id, email, firstName, lastName, role } = req.body;
-      const user = await storage.upsertUser({ id, email, firstName, lastName, role: role || "user" });
-      res.status(201).json(user);
-    } catch (error) {
-      console.error("Error creating user:", error);
-      res.status(500).json({ message: "Failed to create user" });
+  try {
+    const { email, firstName, lastName, role, password } = req?.body;
+
+    if (!email || !password || !firstName || !lastName) {
+      return res.status(400).json({ message: "All fields are required" });
     }
-  });
+
+    // Check if user already exists
+    const existingUser = await storage.getUserByEmail(email);
+    if (existingUser) {
+      return res.status(409).json({ message: "Email already registered" });
+    }
+
+    // Handle file upload
+    let profileImageUrl: string | null = null;
+    if (req.files && (req.files as any).profileImage) {
+      profileImageUrl = await handleFileUpload((req.files as any).profileImage);
+    }
+
+    // Create new user (store password as plain text)
+    const user = await storage.upsertUser({
+      email,
+      firstName,
+      lastName,
+      role: role || "user",
+      password,
+      profileImageUrl,
+    });
+
+    res.status(201).json(user);
+  } catch (error) {
+    console.error("Error creating user:", error);
+    res.status(500).json({ message: "Failed to create user" });
+  }
+});
 
   app.get("/api/auth/user", async (req, res) => {
     try {
@@ -244,6 +248,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch statistics" });
     }
   });
+
+app.post("/api/local-login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ message: "Email and password required" });
+    const user = await storage.getUserByEmailAndPassword(email, password);
+    if (!user) return res.status(400).json({ message: "Invalid email or password" });
+    res.status(200).json({ message: "Login successful", user,status:200,success:true,error:false });
+  } catch (err) {
+    console.error("Login error:", err);
+    res.status(500).json({ message: "Login failed" });
+  }
+});
   const httpServer = createServer(app);
   return httpServer;
 }

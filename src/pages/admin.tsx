@@ -26,6 +26,8 @@ type AdminStats = {
   todayScans: number;
   failedScans: number;
   successRate: number;
+  successfulScans: number;
+  monthlyScans: number;
 };
 
 export default function Admin() {
@@ -46,11 +48,9 @@ export default function Admin() {
   // Fetch admin stats
   const { data: adminStats = {} as AdminStats } = useQuery<AdminStats>({
     queryKey: ["adminStats"],
-    queryFn: () => apiRequest("GET", `${process.env.BASE_URL}/api/stats/admin`),
+    queryFn: () => apiRequest("GET", `${BASE_URL}/api/stats/admin`),
     enabled: !!user && user.role === "admin",
   });
-
-  // Fetch all scans using the appliedFilters in the queryKey
   const { data: allScans = [] as Scan[] } = useQuery<Scan[]>({
     queryKey: ["allScans", appliedFilters],
     queryFn: () => {
@@ -60,7 +60,6 @@ export default function Admin() {
     enabled: !!user && user.role === "admin",
   });
 
-  // Delete scan mutation
   const deleteScanMutation = useMutation({
     mutationFn: (scanId: string) => apiRequest("DELETE", `${BASE_URL}/api/scans/${scanId}`),
     onSuccess: () => {
@@ -111,7 +110,16 @@ export default function Admin() {
     <div className="min-h-screen bg-gray-50">
       <Navigation />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        <h2 className="text-xl font-semibold text-gray-900">Admin Dashboard</h2>
+        {Object.keys(adminStats).length > 0 && (
+          <StatsCards
+            stats={{
+              totalScans: adminStats.totalScans,
+              successfulScans: adminStats.successfulScans,
+              failedScans: adminStats.failedScans,
+              monthlyScans: adminStats.monthlyScans,
+            }}
+          />
+        )}
         
         {Object.keys(adminStats).length > 0 && <StatsCards stats={adminStats} />}
 

@@ -10,7 +10,6 @@ const useQuery = ({ queryKey, queryFn, retry, refetchOnWindowFocus }) => {
     error: null,
   };
 };
-
 export function useAuth() {
   const { data: user, isLoading } = useQuery({
     queryKey: ["user"],

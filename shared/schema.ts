@@ -31,11 +31,13 @@ export const users = pgTable("users", {
   email: varchar("email").unique(),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
+  password: varchar("password").notNull(), 
   profileImageUrl: varchar("profile_image_url"),
-  role: varchar("role").notNull().default("user"), // 'user' or 'admin'
+  role: varchar("role").notNull().default("user"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
 
 // VIN scans table
 export const vinScans = pgTable("vin_scans", {

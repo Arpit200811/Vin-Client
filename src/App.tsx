@@ -1,18 +1,15 @@
-// src/App.tsx
-
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "./components/ui/toaster";
 import { useAuth } from "./hooks/useAuth";
-
-// Import Pages
+import axios from "axios";
 import Landing from "./pages/landing";
 import Scanner from "./pages/scanner";
 import Admin from "./pages/admin";
+import Login from "./pages/login";
 import NotFound from "./pages/not-found";
-
-// A small component to show while authentication is loading
+import Signup from "./pages/Signup";
 function AuthSpinner() {
   return (
     <div className="min-h-screen flex items-center justify-center">
@@ -30,32 +27,29 @@ function AppRouter() {
 
   return (
     <Routes>
-      {isAuthenticated ? (
+      <Route path="/login" element={<Login/>} />
+      {!isAuthenticated && (
         <>
-          {/* Authenticated users land on the scanner page */}
-          <Route path="/" element={<Scanner />} />
-          
-          {/* Admin Route */}
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </>
+      )}
+
+      {/* Protected Routes */}
+      {isAuthenticated && (
+        <>
+          <Route path="/" element={<Landing />} />
+          <Route path="/scanner" element={<Scanner />} />
+          <Route path="/signup" element={<Signup />} />
           <Route
             path="/admin"
             element={user?.role === "admin" ? <Admin /> : <Navigate to="/" replace />}
           />
-          {/* If a logged-in user tries to visit a non-existent page */}
           <Route path="*" element={<NotFound />} />
-        </>
-      ) : (
-        <>
-          {/* Unauthenticated users land on the landing page */}
-          <Route path="/" element={<Landing />} />
-
-          {/* Any other route redirects to the landing page */}
-          <Route path="*" element={<Navigate to="/" replace />} />
         </>
       )}
     </Routes>
   );
 }
-
 function App() {
   return (
     <QueryClientProvider client={queryClient}>

@@ -9,13 +9,14 @@ import {
 } from "../shared/schema.js";
 import { db } from "./db.js";
 import { eq, desc, and, like, gte, lte, count } from "drizzle-orm";
-import { any } from "zod";
 
 export interface IStorage {
+  getUserByEmailAndPassword(email: any, password: any): unknown;
   // User operations (required for Replit Auth)
   getUser(id: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
-  
+
   // VIN scan operations
   createVinScan(scan: InsertVinScan): Promise<VinScan>;
   getVinScansByUser(userId: string): Promise<VinScanWithUser[]>;
@@ -31,7 +32,7 @@ export interface IStorage {
   updateVinScan(id: string, data: Partial<InsertVinScan>): Promise<VinScan | undefined>;
   deleteVinScan(id: string): Promise<boolean>;
   deleteVinScans(ids: string[]): Promise<number>;
-  
+
   // Statistics
   getUserScanStats(userId: string): Promise<{
     totalScans: number;
@@ -55,41 +56,76 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async upsertUser(userData: UpsertUser): Promise<User> {
-    const [user] = await db
-      .insert(users)
-      .values(userData)
-      .onConflictDoUpdate({
-        target: users.id,
-        set: {
-          ...userData,
-          updatedAt: new Date(),
-        },
-      })
-      .returning();
-    return user;
-  }
+async getUserByEmail(email: string,): Promise<User | undefined> {
+  const [user] = await db
+    .select({
+      id: users.id,
+      email: users.email,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      password: users.password,
+      profileImageUrl: users.profileImageUrl,
+      role: users.role,
+      createdAt: users.createdAt,
+      updatedAt: users.updatedAt,
+    })
+    .from(users)
+    .where(eq(users.email, email));
+  return user;
+}
+
+async  getUserByEmailAndPassword(email: string, password: any): Promise<User | undefined> {
+  const [user] = await db
+    .select({
+      id: users.id,
+      email: users.email,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      password: users.password,
+      profileImageUrl: users.profileImageUrl,
+      role: users.role,
+      createdAt: users.createdAt,
+      updatedAt: users.updatedAt,
+    })
+    .from(users)
+    .where(eq(users.email, email));
+
+  if (!user) return undefined;
+  if (user.password !== password) return undefined;
+  return { ...user, password: undefined } as any;
+}
+
+
+  async upsertUser(userData: UpsertUser & { password?: string }): Promise<User> {
+  const [user] = await db
+    .insert(users)
+    .values(userData)
+    .onConflictDoUpdate({
+      target: users.id,
+      set: { ...userData, updatedAt: new Date() },
+    })
+    .returning();
+  return user;
+}
 
   // VIN scan operations
   async createVinScan(scan: InsertVinScan): Promise<VinScan> {
-    const [newScan] = await db
-      .insert(vinScans)
-      .values(scan)
-      .returning();
+    const [newScan] = await db.insert(vinScans).values(scan).returning();
     return newScan;
   }
 
   async getVinScansByUser(userId: string): Promise<VinScanWithUser[]> {
-    return await db
+    const rows = await db
       .select()
       .from(vinScans)
       .leftJoin(users, eq(vinScans.userId, users.id))
       .where(eq(vinScans.userId, userId))
-      .orderBy(desc(vinScans.createdAt))
-      .then(rows => rows.map(row => ({
-        ...row.vin_scans,
-        user: row.users!
-      })));
+      .orderBy(desc(vinScans.createdAt));
+
+    return rows.map(row => ({
+      ...row.vin_scans,
+      user: row.users!,
+    }));
   }
 
   async getAllVinScans(filters?: {
@@ -100,47 +136,21 @@ export class DatabaseStorage implements IStorage {
     limit?: number;
     offset?: number;
   }): Promise<VinScanWithUser[]> {
-    let query:any= db
-      .select()
-      .from(vinScans)
-      .leftJoin(users, eq(vinScans.userId, users.id));
+    let query: any = db.select().from(vinScans).leftJoin(users, eq(vinScans.userId, users.id));
+    const conditions: any[] = [];
 
-    const conditions = [];
-    
-    if (filters?.userId) {
-      conditions.push(eq(vinScans.userId, filters.userId));
-    }
-    
-    if (filters?.vinNumber) {
-      conditions.push(like(vinScans.vinNumber, `%${filters.vinNumber}%`));
-    }
-    
-    if (filters?.dateFrom) {
-      conditions.push(gte(vinScans.createdAt, filters.dateFrom));
-    }
-    
-    if (filters?.dateTo) {
-      conditions.push(lte(vinScans.createdAt, filters.dateTo));
-    }
+    if (filters?.userId) conditions.push(eq(vinScans.userId, filters.userId));
+    if (filters?.vinNumber) conditions.push(like(vinScans.vinNumber, `%${filters.vinNumber}%`));
+    if (filters?.dateFrom) conditions.push(gte(vinScans.createdAt, filters.dateFrom));
+    if (filters?.dateTo) conditions.push(lte(vinScans.createdAt, filters.dateTo));
+    if (conditions.length) query = query.where(and(...conditions));
+    if (filters?.limit) query = query.limit(filters.limit);
+    if (filters?.offset) query = query.offset(filters.offset);
 
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions));
-    }
-
-    query = query.orderBy(desc(vinScans.createdAt));
-
-    if (filters?.limit) {
-      query = query.limit(filters.limit);
-    }
-
-    if (filters?.offset) {
-      query = query.offset(filters.offset);
-    }
-
-    const rows:any = await query;
-    return rows.map((row:any)=> ({
+    const rows: any = await query.orderBy(desc(vinScans.createdAt));
+    return rows.map((row: any) => ({
       ...row.vin_scans,
-      user: row.users!
+      user: row.users!,
     }));
   }
 
@@ -152,76 +162,40 @@ export class DatabaseStorage implements IStorage {
       .where(eq(vinScans.id, id));
 
     if (!row) return undefined;
-
-    return {
-      ...row.vin_scans,
-      user: row.users!
-    };
+    return { ...row.vin_scans, user: row.users! };
   }
 
   async updateVinScan(id: string, data: Partial<InsertVinScan>): Promise<VinScan | undefined> {
-    const [updated] = await db
-      .update(vinScans)
-      .set({ ...data, updatedAt: new Date() })
-      .where(eq(vinScans.id, id))
-      .returning();
+    const [updated] = await db.update(vinScans).set({ ...data, updatedAt: new Date() }).where(eq(vinScans.id, id)).returning();
     return updated;
   }
 
   async deleteVinScan(id: string): Promise<boolean> {
-    const result:any = await db
-      .delete(vinScans)
-      .where(eq(vinScans.id, id));
+    const result: any = await db.delete(vinScans).where(eq(vinScans.id, id));
     return result.rowCount > 0;
   }
 
   async deleteVinScans(ids: string[]): Promise<number> {
-    if (ids.length === 0) return 0;
-    
-    const result:any = await db
-      .delete(vinScans)
-      .where(eq(vinScans.id, ids[0])); // For simplicity, delete one by one in a transaction would be better
-    return result.rowCount;
+    if (!ids.length) return 0;
+    let deletedCount = 0;
+    for (const id of ids) {
+      const deleted = await this.deleteVinScan(id);
+      if (deleted) deletedCount++;
+    }
+    return deletedCount;
   }
 
   // Statistics
-  async getUserScanStats(userId: string): Promise<{
-    totalScans: number;
-    successfulScans: number;
-    failedScans: number;
-    monthlyScans: number;
-  }> {
+  async getUserScanStats(userId: string) {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    const [totalResult] = await db
-      .select({ count: count() })
-      .from(vinScans)
-      .where(eq(vinScans.userId, userId));
-
-    const [successfulResult] = await db
-      .select({ count: count() })
-      .from(vinScans)
-      .where(and(
-        eq(vinScans.userId, userId),
-        eq(vinScans.scanStatus, 'complete')
-      ));
-
-    const [failedResult] = await db
-      .select({ count: count() })
-      .from(vinScans)
-      .where(and(
-        eq(vinScans.userId, userId),
-        eq(vinScans.scanStatus, 'failed')
-      ));
-
-    const [monthlyResult] = await db
-      .select({ count: count() })
-      .from(vinScans)
-      .where(and(
-        eq(vinScans.userId, userId),
-        gte(vinScans.createdAt, startOfMonth)
-      ));
+    const [[totalResult], [successfulResult], [failedResult], [monthlyResult]] = await Promise.all([
+      db.select({ count: count() }).from(vinScans).where(eq(vinScans.userId, userId)),
+      db.select({ count: count() }).from(vinScans).where(and(eq(vinScans.userId, userId), eq(vinScans.scanStatus, 'complete'))),
+      db.select({ count: count() }).from(vinScans).where(and(eq(vinScans.userId, userId), eq(vinScans.scanStatus, 'failed'))),
+      db.select({ count: count() }).from(vinScans).where(and(eq(vinScans.userId, userId), gte(vinScans.createdAt, startOfMonth))),
+    ]);
 
     return {
       totalScans: totalResult.count,
@@ -231,42 +205,20 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getAdminStats(): Promise<{
-    totalUsers: number;
-    totalScans: number;
-    todayScans: number;
-    failedScans: number;
-    successRate: number;
-  }> {
+  async getAdminStats() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const [usersResult] = await db
-      .select({ count: count() })
-      .from(users);
-
-    const [totalScansResult] = await db
-      .select({ count: count() })
-      .from(vinScans);
-
-    const [todayScansResult] = await db
-      .select({ count: count() })
-      .from(vinScans)
-      .where(gte(vinScans.createdAt, today));
-
-    const [failedScansResult] = await db
-      .select({ count: count() })
-      .from(vinScans)
-      .where(eq(vinScans.scanStatus, 'failed'));
-
-    const [successfulScansResult] = await db
-      .select({ count: count() })
-      .from(vinScans)
-      .where(eq(vinScans.scanStatus, 'complete'));
+    const [[usersResult], [totalScansResult], [todayScansResult], [failedScansResult], [successfulScansResult]] = await Promise.all([
+      db.select({ count: count() }).from(users),
+      db.select({ count: count() }).from(vinScans),
+      db.select({ count: count() }).from(vinScans).where(gte(vinScans.createdAt, today)),
+      db.select({ count: count() }).from(vinScans).where(eq(vinScans.scanStatus, 'failed')),
+      db.select({ count: count() }).from(vinScans).where(eq(vinScans.scanStatus, 'complete')),
+    ]);
 
     const totalScans = totalScansResult.count;
-    const successfulScans = successfulScansResult.count;
-    const successRate = totalScans > 0 ? (successfulScans / totalScans) * 100 : 0;
+    const successRate = totalScans > 0 ? (successfulScansResult.count / totalScans) * 100 : 0;
 
     return {
       totalUsers: usersResult.count,
@@ -278,4 +230,5 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
-export const storage:any= new DatabaseStorage();
+// Export a singleton instance
+export const storage: IStorage = new DatabaseStorage();

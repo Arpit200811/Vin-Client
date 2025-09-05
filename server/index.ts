@@ -3,6 +3,10 @@ import dotenv from "dotenv";
 import cors from "cors";
 import path from "path";
 import { registerRoutes } from "./routes.js";
+import fileUpload from "express-fileupload";
+import { fileURLToPath } from "url";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 dotenv.config();
 const app = express();
@@ -11,8 +15,19 @@ app.use(express.urlencoded({ extended: false }));
 
 // CORS
 app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(
+  fileUpload({
+    useTempFiles: true,      
+    tempFileDir: "/tmp/",     
+    createParentPath: true,
+    parseNested: true         
+  })
+);
 
-// API Logging
+// Serve uploaded files
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use((req, res, next) => {
   const start = Date.now();
   const originalResJson = res.json.bind(res);

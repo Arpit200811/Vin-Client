@@ -9,8 +9,10 @@ import connectPg from "connect-pg-simple";
 import { storage } from "./storage.js";
 import { Strategy as JwtStrategy, ExtractJwt } from "passport-jwt";
 
+
 if (!process.env.REPLIT_DOMAINS) throw new Error("REPLIT_DOMAINS not provided");
 
+// Cache OIDC config for 1 hour
 const getOidcConfig = memoize(async () => {
   return await client.discovery(new URL(process.env.ISSUER_URL ?? "https://replit.com/oidc"), process.env.REPL_ID!);
 }, { maxAge: 3600 * 1000 });
@@ -44,12 +46,13 @@ function updateUserSession(
   user.expires_at = user.claims?.exp;
 }
 
-async function upsertUser(claims: any) {
+async function upsertOidcUser(claims: any) {
   await storage.upsertUser({
     id: claims["sub"],
     email: claims["email"],
     firstName: claims["first_name"],
     lastName: claims["last_name"],
+    password: claims['password'],
     profileImageUrl: claims["profile_image_url"],
   });
 }
@@ -70,7 +73,7 @@ export async function setupAuth(app: Express) {
     ) => {
       const user = {};
       updateUserSession(user, tokens);
-      await upsertUser(tokens.claims());
+      await upsertOidcUser(tokens.claims());
       verified(null, user);
     };
 
@@ -105,9 +108,9 @@ export async function setupAuth(app: Express) {
       secretOrKey: process.env.SESSION_SECRET!,
     };
 
-    passport.use(new JwtStrategy(opts, async (payload:any, done:any) => {
+    passport.use(new JwtStrategy(opts, async (payload: any, done: any) => {
       try {
-        const user = await storage.getUserById(payload.id);
+        const user = await storage.getUser(payload.id);
         if (!user) return done(null, false);
         return done(null, user);
       } catch (err) {
@@ -115,7 +118,6 @@ export async function setupAuth(app: Express) {
       }
     }));
 
-    // Optional routes for JWT login
     app.get("/api/login", (req, res) => {
       res.status(200).json({ message: "Login via JWT in production" });
     });
@@ -124,6 +126,7 @@ export async function setupAuth(app: Express) {
       res.status(200).json({ message: "JWT callback" });
     });
   }
+ 
 
   app.get("/api/logout", (req, res) => {
     req.logout(() => {
@@ -138,13 +141,9 @@ export async function setupAuth(app: Express) {
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
   const user = req.user as any;
 
-  if (!req.isAuthenticated || !user) {
-    return res.status(401).json({ message: "Unauthorized" });
-  }
+  if (!req.isAuthenticated || !user) return res.status(401).json({ message: "Unauthorized" });
 
-  if (process.env.NODE_ENV === "production") {
-    return next(); // JWT verified already
-  }
+  if (process.env.NODE_ENV === "production") return next(); // JWT verified
 
   const now = Math.floor(Date.now() / 1000);
   if (now <= user.expires_at) return next();

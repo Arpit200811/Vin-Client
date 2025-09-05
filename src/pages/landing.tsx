@@ -1,7 +1,10 @@
 import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
+import { useNavigate } from "react-router-dom";
 
 export default function Landing() {
+  const navigate = useNavigate();
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/10 to-blue-50 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
@@ -23,7 +26,7 @@ export default function Landing() {
               </p>
               
               <Button 
-                onClick={() => window.location.href = '/api/login'}
+                onClick={() => navigate("/login")}
                 className="w-full"
                 data-testid="button-login"
               >
