@@ -18,14 +18,12 @@ appRouter.post("/api/scan-vin", async (req, res) => {
 
     const file: any = req.files.image;
 
-    // Save file
     const { filePath, publicUrl } = await handleFileUpload(file);
 
-    // Perform OCR
     const rawText = await performOcrWithApi(filePath, OCR_API_KEY);
 
-    // Extract VIN
     const vin = extractVinFromText(rawText);
+
     if (!vin || vin.length !== 17) {
       return res.status(404).json({
         error: "No valid 17-character VIN found in the image.",
@@ -33,11 +31,10 @@ appRouter.post("/api/scan-vin", async (req, res) => {
       });
     }
 
-    // Send response
     res.json({ vin, fileUrl: publicUrl });
 
-    // Cleanup file
-    await fs.promises.unlink(filePath).catch(err =>
+    // Cleanup
+    await fs.unlink(filePath).catch((err: any) =>
       console.error("Failed to clean up file:", err)
     );
 
