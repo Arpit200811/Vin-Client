@@ -15,10 +15,16 @@ appRouter.post("/api/scan-vin", async (req, res) => {
     if (!req.files || !req.files.image) {
       return res.status(400).json({ error: "No image uploaded" });
     }
+
     const file: any = req.files.image;
-    const savedFileUrl = await handleFileUpload(file);
-    const filePath = path.join(process.cwd(), savedFileUrl);
+
+    // Save file
+    const { filePath, publicUrl } = await handleFileUpload(file);
+
+    // Perform OCR
     const rawText = await performOcrWithApi(filePath, OCR_API_KEY);
+
+    // Extract VIN
     const vin = extractVinFromText(rawText);
     if (!vin || vin.length !== 17) {
       return res.status(404).json({
@@ -26,15 +32,21 @@ appRouter.post("/api/scan-vin", async (req, res) => {
         rawText: normalizeVinChars(rawText.toUpperCase()).replace(/[^A-Z0-9]/g, ""),
       });
     }
-    res.json({ vin });
-    await fs.unlink(filePath).catch(err =>
+
+    // Send response
+    res.json({ vin, fileUrl: publicUrl });
+
+    // Cleanup file
+    await fs.promises.unlink(filePath).catch(err =>
       console.error("Failed to clean up file:", err)
     );
+
   } catch (error: any) {
     console.error("Scan processing error:", error);
     res.status(500).json({ error: error.message || "OCR processing failed" });
   }
 });
+
 
   appRouter.post("/api/users", async (req, res) => {
   try {
@@ -51,7 +63,7 @@ appRouter.post("/api/scan-vin", async (req, res) => {
     }
 
     // Handle file upload
-    let profileImageUrl: string | null = null;
+    let profileImageUrl: any | null = null;
     if (req.files && (req.files as any).profileImage) {
       profileImageUrl = await handleFileUpload((req.files as any).profileImage);
     }
