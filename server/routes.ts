@@ -8,7 +8,7 @@ import axios from "axios";
 import FormData from "form-data";
 import { storage } from "./storage.js"; // Your storage module
 import { insertVinScanSchema } from "../shared/schema.js"; // Zod schema
-import { handleFileUpload } from "./fileUpload";
+import { handleFileUpload } from "./fileUpload.js";
 import { z } from "zod";
 import { error } from "console";
 
