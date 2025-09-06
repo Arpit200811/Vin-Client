@@ -13,8 +13,6 @@ import {
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-
-// Session storage table (required for Replit Auth)
 export const sessions = pgTable(
   "sessions",
   {

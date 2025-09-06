@@ -12,7 +12,6 @@ import { eq, desc, and, like, gte, lte, count } from "drizzle-orm";
 
 export interface IStorage {
   getUserByEmailAndPassword(email: any, password: any): unknown;
-  // User operations (required for Replit Auth)
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
@@ -20,6 +19,7 @@ export interface IStorage {
   // VIN scan operations
   createVinScan(scan: InsertVinScan): Promise<VinScan>;
   getVinScansByUser(userId: string): Promise<VinScanWithUser[]>;
+  getVinScanByVin(vin: string): Promise<VinScanWithUser | undefined>;
   getAllVinScans(filters?: {
     userId?: string;
     vinNumber?: string;
@@ -154,6 +154,19 @@ async  getUserByEmailAndPassword(email: string, password: any): Promise<User | u
     }));
   }
 
+async getVinScanByVin(vin: string): Promise<VinScanWithUser | undefined> {
+  console.log("Searching VIN in DB:", vin); // add this
+  const [row] = await db
+    .select()
+    .from(vinScans)
+    .leftJoin(users, eq(vinScans.userId, users.id))
+    .where(eq(vinScans.vinNumber, vin));
+
+  console.log("DB row found:", row); // add this
+
+  if (!row) return undefined;
+  return { ...row.vin_scans, user: row.users! };
+}
   async getVinScanById(id: string): Promise<VinScanWithUser | undefined> {
     const [row] = await db
       .select()

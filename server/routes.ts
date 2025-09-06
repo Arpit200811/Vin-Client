@@ -6,7 +6,6 @@ import { storage } from "./storage.js";
 import { insertVinScanSchema } from "../shared/schema.js";
 import { z } from "zod";
 import { performOcrWithApi, extractVinFromText, normalizeVinChars } from "./ocrUtils.js";
-
 const OCR_API_KEY: any = "K81527619388957";
 console.log("OCR API KEY:", "K81527619388957");
 export const appRouter = express.Router();
@@ -15,7 +14,6 @@ appRouter.post("/api/scan-vin", async (req, res) => {
     if (!req.files || !req.files.image) {
       return res.status(400).json({ error: "No image uploaded" });
     }
-
     const file: any = req.files.image;
 
     const { filePath, publicUrl } = await handleFileUpload(file);
@@ -48,24 +46,17 @@ appRouter.post("/api/scan-vin", async (req, res) => {
   appRouter.post("/api/users", async (req, res) => {
   try {
     const { email, firstName, lastName, role, password } = req?.body;
-
     if (!email || !password || !firstName || !lastName) {
       return res.status(400).json({ message: "All fields are required" });
     }
-
-    // Check if user already exists
-    const existingUser = await storage.getUserByEmail(email);
+      const existingUser = await storage.getUserByEmail(email);
     if (existingUser) {
       return res.status(409).json({ message: "Email already registered" });
     }
-
-    // Handle file upload
     let profileImageUrl: any | null = null;
     if (req.files && (req.files as any).profileImage) {
       profileImageUrl = await handleFileUpload((req.files as any).profileImage);
     }
-
-    // Create new user (store password as plain text)
     const user = await storage.upsertUser({
       email,
       firstName,
@@ -81,7 +72,6 @@ appRouter.post("/api/scan-vin", async (req, res) => {
     res.status(500).json({ message: "Failed to create user" });
   }
 });
-
   appRouter.get("/api/auth/user", async (req, res) => {
     try {
       const user = {
@@ -112,7 +102,6 @@ appRouter.post("/api/scan-vin", async (req, res) => {
       }
     }
   });
-
   appRouter.get("/api/scans", async (req, res) => {
     try {
       const { userId, vinNumber, dateFrom, dateTo, limit = 50, offset = 0 } = req.query;
@@ -131,7 +120,6 @@ appRouter.post("/api/scan-vin", async (req, res) => {
       res.status(500).json({ message: "Failed to fetch scans" });
     }
   });
-
   appRouter.get("/api/scans/:id", async (req, res) => {
     try {
       const scan = await storage.getVinScanById(req.params.id);
@@ -142,7 +130,6 @@ appRouter.post("/api/scan-vin", async (req, res) => {
       res.status(500).json({ message: "Failed to fetch scan" });
     }
   });
-
   appRouter.put("/api/scans/:id", async (req, res) => {
     try {
       const updateData = insertVinScanSchema.partial().parse(req.body);
@@ -158,7 +145,6 @@ appRouter.post("/api/scan-vin", async (req, res) => {
       }
     }
   });
-
   appRouter.delete("/api/scans/:id", async (req, res) => {
     try {
       const success = await storage.deleteVinScan(req.params.id);
@@ -169,7 +155,6 @@ appRouter.post("/api/scan-vin", async (req, res) => {
       res.status(500).json({ message: "Failed to delete scan" });
     }
   });
-
   appRouter.delete("/api/scans", async (req, res) => {
     try {
       const { ids } = req.body;
@@ -181,8 +166,6 @@ appRouter.post("/api/scan-vin", async (req, res) => {
       res.status(500).json({ message: "Failed to delete scans" });
     }
   });
-
-  // -------- Statistics Routes --------
   appRouter.get("/api/stats/user", async (req, res) => {
     try {
       const userId = "public_access_user_id";
@@ -212,5 +195,22 @@ appRouter.post("/api/local-login", async (req, res) => {
   } catch (err) {
     console.error("Login error:", err);
     res.status(500).json({ message: "Login failed" });
+  }
+});
+
+appRouter.get("/get-vin-details/:vin", async (req: any, res: any) => {
+  const vinScanId = req.params.vin; 
+  if (!vinScanId) {
+    return res.status(400).json({ message: "VIN scan ID is required" });
+  }
+  try {
+    const vinData =await storage?.getVinScanByVin(vinScanId);
+    if (!vinData) {
+      return res.status(404).json({ message: "VIN not found" });
+    }
+    return res.status(200).json(vinData);
+  } catch (err) {
+    console.error("Error fetching VIN details:", err);
+    return res.status(500).json({ message: "Server error" });
   }
 });
