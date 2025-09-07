@@ -4,40 +4,47 @@ import * as yup from "yup";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { BASE_URL } from '../lib/Service';
+import Swal from "sweetalert2";
+import { BASE_URL } from "../lib/Service";
 
 type SignupFormInputs = {
   email: string;
   firstName: string;
   lastName: string;
   password: string;
-  profileImage?: FileList; // File upload instead of URL
+  profileImage?: FileList;
 };
-const schema = yup.object({
-  email: yup.string().email("Invalid email").required("Email is required"),
-  firstName: yup.string().required("First name is required"),
-  lastName: yup.string().required("Last name is required"),
-  password: yup.string().min(6, "Password must be at least 6 characters").required("Password is required"),
-  profileImage: yup
-    .mixed<FileList>()
-    .test("fileList", "Invalid file type", (value) => !value || value instanceof FileList)
-    .optional(),
-}).required();
+
+const schema = yup
+  .object({
+    email: yup.string().email("Invalid email").required("Email is required"),
+    firstName: yup.string().required("First name is required"),
+    lastName: yup.string().required("Last name is required"),
+    password: yup
+      .string()
+      .min(6, "Password must be at least 6 characters")
+      .required("Password is required"),
+    profileImage: yup
+      .mixed<FileList>()
+      .test("fileList", "Invalid file type", (value) => !value || value instanceof FileList)
+      .optional(),
+  })
+  .required();
 
 export default function Signup() {
   const navigate = useNavigate();
-  const [errorMessage, setErrorMessage] = useState("");
-  const [showPassword, setShowPassword] = useState(false); // toggle state
+  const [showPassword, setShowPassword] = useState(false);
 
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<SignupFormInputs>({ resolver: yupResolver(schema) });
+  } = useForm<SignupFormInputs>({
+    resolver: yupResolver(schema),
+  });
 
   const onSubmit = async (data: any) => {
     try {
-      setErrorMessage("");
       const formData = new FormData();
       formData.append("email", data.email);
       formData.append("firstName", data.firstName);
@@ -48,96 +55,111 @@ export default function Signup() {
       if (data.profileImage && data.profileImage[0]) {
         formData.append("profileImage", data.profileImage[0]);
       }
-      await axios.post(`${BASE_URL}/api/users`, formData, {
-      });
 
-      alert("Signup successful ✅");
-      navigate("/login");
+      await axios.post(`${BASE_URL}/api/users`, formData);
+
+      Swal.fire({
+        title: "🎉 Signup Successful!",
+        text: "Your account has been created successfully.",
+        icon: "success",
+        confirmButtonText: "Go to Login",
+        confirmButtonColor: "#2563eb",
+      }).then(() => {
+        navigate("/login");
+      });
     } catch (error: any) {
-      console.error("Signup failed:", error);
-      setErrorMessage(error.response?.data?.message || "Signup failed");
+      Swal.fire({
+        title: "❌ Signup Failed",
+        text: error.response?.data?.message || "Something went wrong, please try again.",
+        icon: "error",
+        confirmButtonColor: "#ef4444",
+      });
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className="p-8 bg-white rounded shadow-md w-full max-w-md"
-      >
-        <h2 className="text-2xl font-bold mb-6 text-center">Create Account</h2>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 via-purple-100 to-pink-100 px-4">
+      <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl p-8 md:p-10">
+        <h2 className="text-3xl md:text-4xl font-bold mb-6 text-center text-gray-800">
+          Create Account 🚀
+        </h2>
 
-        {errorMessage && (
-          <p className="text-red-500 text-sm mb-4 text-center">{errorMessage}</p>
-        )}
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          {/* Email */}
+          <div>
+            <input
+              type="email"
+              placeholder="Email"
+              {...register("email")}
+              className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none"
+            />
+            {errors.email && <p className="text-red-500 text-sm">{errors.email.message}</p>}
+          </div>
 
-        <div className="mb-4">
-          <input
-            type="email"
-            placeholder="Email"
-            {...register("email")}
-            className="w-full p-2 border rounded"
-          />
-          {errors.email && <p className="text-red-500 text-sm">{errors.email.message}</p>}
-        </div>
+          {/* First Name */}
+          <div>
+            <input
+              type="text"
+              placeholder="First Name"
+              {...register("firstName")}
+              className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none"
+            />
+            {errors.firstName && <p className="text-red-500 text-sm">{errors.firstName.message}</p>}
+          </div>
 
-        <div className="mb-4">
-          <input
-            type="text"
-            placeholder="First Name"
-            {...register("firstName")}
-            className="w-full p-2 border rounded"
-          />
-          {errors.firstName && <p className="text-red-500 text-sm">{errors.firstName.message}</p>}
-        </div>
+          {/* Last Name */}
+          <div>
+            <input
+              type="text"
+              placeholder="Last Name"
+              {...register("lastName")}
+              className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none"
+            />
+            {errors.lastName && <p className="text-red-500 text-sm">{errors.lastName.message}</p>}
+          </div>
 
-        <div className="mb-4">
-          <input
-            type="text"
-            placeholder="Last Name"
-            {...register("lastName")}
-            className="w-full p-2 border rounded"
-          />
-          {errors.lastName && <p className="text-red-500 text-sm">{errors.lastName.message}</p>}
-        </div>
+          {/* Password */}
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              placeholder="Password"
+              {...register("password")}
+              className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none"
+            />
+            <span
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-3 cursor-pointer text-gray-500"
+            >
+              {showPassword ? "🙈" : "👁️"}
+            </span>
+            {errors.password && (
+              <p className="text-red-500 text-sm">{errors.password.message}</p>
+            )}
+          </div>
 
-        {/* Password Field */}
-        <div className="mb-4 relative">
-          <input
-            type={showPassword ? "text" : "password"}
-            placeholder="Password"
-            {...register("password")}
-            className="w-full p-2 border rounded"
-          />
-          <span
-            onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-2.5 cursor-pointer text-gray-500"
+          {/* Profile Image */}
+          <div>
+            <input
+              type="file"
+              accept="image/*"
+              {...register("profileImage")}
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none"
+            />
+            {errors.profileImage && (
+              <p className="text-red-500 text-sm">{String(errors.profileImage.message)}</p>
+            )}
+          </div>
+
+          {/* Submit Button */}
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white font-semibold rounded-lg hover:opacity-90 transition-all duration-200 shadow-md"
           >
-            {showPassword ? "🙈" : "👁️"}
-          </span>
-          {errors.password && <p className="text-red-500 text-sm">{errors.password.message}</p>}
-        </div>
-
-        <div className="mb-4">
-          <input
-            type="file"
-            accept="image/*"
-            {...register("profileImage")}
-            className="w-full p-2 border rounded"
-          />
-          {errors.profileImage && (
-            <p className="text-red-500 text-sm">{String(errors.profileImage.message)}</p>
-          )}
-        </div>
-
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="w-full p-2 bg-primary text-white rounded hover:bg-blue-600 transition"
-        >
-          {isSubmitting ? "Signing up..." : "Sign Up"}
-        </button>
-      </form>
+            {isSubmitting ? "Signing up..." : "Sign Up"}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
