@@ -5,7 +5,9 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { BASE_URL } from "../lib/Service";
 import axios from "axios";
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useDispatch } from 'react-redux'
+import { login } from "../redux/slice/authSlice";
 
 type LoginFormInputs = {
   email: string;
@@ -23,6 +25,7 @@ const schema = yup
   .required();
 
 export default function Login() {
+  const dispatch = useDispatch()
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [rememberMe, setRememberMe] = useState(false);
@@ -35,34 +38,17 @@ export default function Login() {
   } = useForm<LoginFormInputs>({
     resolver: yupResolver(schema),
   });
-
-  // Load remembered credentials from localStorage
-  useEffect(() => {
-    const savedEmail = localStorage.getItem("rememberEmail");
-    const savedPassword = localStorage.getItem("rememberPassword");
-    if (savedEmail && savedPassword) {
-      setValue("email", savedEmail);
-      setValue("password", savedPassword);
-      setRememberMe(true);
-    }
-  }, [setValue]);
-
   const onSubmit = async (data: any) => {
-    // Remember Me functionality
-    if (rememberMe) {
-      localStorage.setItem("rememberEmail", data.email);
-      localStorage.setItem("rememberPassword", data.password);
-    } else {
-      localStorage.removeItem("rememberEmail");
-      localStorage.removeItem("rememberPassword");
-    }
-
     const response = await axios.post(`${BASE_URL}/api/local-login`, data);
     if (response.data.status == 200) {
       alert(response.data.message);
       navigate("/scanner");
+      dispatch(login({
+        user: response.data.user,
+        token: "dummy-token",
+      }));
     } else {
-      alert(response.data.message);
+      alert(response?.data?.message);
     }
   };
 

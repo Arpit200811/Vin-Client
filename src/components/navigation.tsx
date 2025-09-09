@@ -1,13 +1,21 @@
 import { useAuth } from "../hooks/useAuth";
 import { Button } from "../components/ui/button";
 import { Link, useLocation } from "wouter";
+import { useDispatch, useSelector } from "react-redux";
+import { logout } from "../redux/slice/authSlice";
+import { useNavigate } from "react-router-dom";
+import { RootState } from "../redux/store/store";
 export default function Navigation() {
-  const { user } = useAuth();
+  const user=useSelector((state:RootState)=>state.auth.user)
   const [location] = useLocation();
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
   const handleLogout = () => {
-    window.location.href = "/api/logout";
+    dispatch(logout());
+    localStorage.removeItem("persist:root");
+    navigate("/");
   };
-  const getInitials = (firstName?: string, lastName?: string) => {
+  const getInitials = (firstName?: any, lastName?:any) => {
     return `${firstName?.[0] || ""}${lastName?.[0] || ""}`.toUpperCase() || "U";
   };
   return (
@@ -33,6 +41,7 @@ export default function Navigation() {
               </Link>
             )}
           </nav>
+
           <div className="flex items-center space-x-4">
             <div className="hidden sm:flex items-center space-x-2">
               <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
@@ -44,6 +53,7 @@ export default function Navigation() {
                 {user?.firstName} {user?.lastName}
               </span>
             </div>
+
             <Button 
               variant="ghost" 
               size="sm"

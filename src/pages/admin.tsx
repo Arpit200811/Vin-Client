@@ -12,6 +12,7 @@ import { Label } from "../components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Navigate } from "react-router-dom";
 import { BASE_URL } from "../lib/Service";
+import { AdminWrap } from "../hooks/userAuth";
 type Scan = {
   id: string;
   vin: string;
@@ -30,22 +31,16 @@ type AdminStats = {
   monthlyScans: number;
 };
 
-export default function Admin() {
+ function Admin() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
-
-  // State for the filter input fields
   const [filterInputs, setFilterInputs] = useState({
     vinNumber: "",
     userId: "",
     dateFrom: "",
     dateTo: "",
   });
-
-  // State for the filters that are actually applied to the query
   const [appliedFilters, setAppliedFilters] = useState({});
-
-  // Fetch admin stats
   const { data: adminStats = {} as AdminStats } = useQuery<AdminStats>({
     queryKey: ["adminStats"],
     queryFn: () => apiRequest("GET", `${BASE_URL}/api/stats/admin`),
@@ -59,7 +54,6 @@ export default function Admin() {
     },
     enabled: !!user && user.role === "admin",
   });
-
   const deleteScanMutation = useMutation({
     mutationFn: (scanId: string) => apiRequest("DELETE", `${BASE_URL}/api/scans/${scanId}`),
     onSuccess: () => {
@@ -78,7 +72,6 @@ export default function Admin() {
       });
     },
   });
-
   const handleApplyFilters = () => {
     // Remove empty filters before applying
     const cleanFilters = Object.fromEntries(
@@ -87,12 +80,10 @@ export default function Admin() {
     setAppliedFilters(cleanFilters);
   };
   const handleDeleteScan = (scanId: string) => {
-    // You can replace this with a styled AlertDialog from your component library
     if (window.confirm("Are you sure you want to delete this scan?")) {
       deleteScanMutation.mutate(scanId);
     }
   };
-
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -100,12 +91,9 @@ export default function Admin() {
       </div>
     );
   }
-
-  // Use declarative routing for protection instead of useEffect with redirects
   if (!isAuthenticated || user?.role !== "admin") {
     return <Navigate to="/" replace />;
   }
-
   return (
     <div className="min-h-screen bg-gray-50">
       <Navigation />
@@ -119,8 +107,7 @@ export default function Admin() {
               monthlyScans: adminStats.monthlyScans,
             }}
           />
-        )}
-        
+        )}        
         {Object.keys(adminStats).length > 0 && <StatsCards stats={adminStats} />}
 
         <Card>
@@ -171,3 +158,4 @@ export default function Admin() {
     </div>
   );
 }
+export default AdminWrap(Admin);

@@ -10,6 +10,7 @@ import Admin from "./pages/admin";
 import Login from "./pages/login";
 import NotFound from "./pages/not-found";
 import Signup from "./pages/Signup";
+
 function AuthSpinner() {
   return (
     <div className="min-h-screen flex items-center justify-center">
