@@ -246,7 +246,6 @@
 
 
 
-
 import { useState, useRef, useEffect } from "react";
 import Webcam from "react-webcam";
 import * as tmImage from "@teachablemachine/image";
@@ -269,9 +268,8 @@ export default function VinScanner() {
   );
   const [mode, setMode] = useState<"checkin" | "checkout" | null>(null);
 
-  // Torch
+  // Torch state
   const [torchOn, setTorchOn] = useState(false);
-  const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
 
   // Check-In / Check-Out states
   const [detectedVin, setDetectedVin] = useState<string | null>(null);
@@ -292,46 +290,49 @@ export default function VinScanner() {
         setModel(loadedModel);
         toast.success("Model loaded ✅");
       } catch (err) {
-        console.error(err);
+        console.error("Model load failed:", err);
         toast.error("Model failed to load!");
       }
     };
     loadModel();
   }, []);
 
-  // MediaStream for torch
-  useEffect(() => {
-    if (isCameraActive) {
-      navigator.mediaDevices
-        .getUserMedia({ video: { facingMode } })
-        .then((stream) => setMediaStream(stream))
-        .catch((err) => console.error("Camera error", err));
-    } else {
-      if (mediaStream) {
-        mediaStream.getTracks().forEach((t) => t.stop());
-        setMediaStream(null);
-      }
-    }
-  }, [isCameraActive, facingMode]);
-
+  // **FIXED**: Torch is now handled using the webcam's own stream to avoid conflicts.
   const handleToggleTorch = async () => {
-    if (!mediaStream) return;
-    const track = mediaStream.getVideoTracks()[0];
-    const capabilities = track.getCapabilities() as any;
-    if (capabilities.torch) {
-      await track.applyConstraints({ advanced: [{ torch: !torchOn }] } as any);
-      setTorchOn(!torchOn);
+    if (webcamRef.current && webcamRef.current.stream) {
+      const stream = webcamRef.current.stream;
+      const track = stream.getVideoTracks()[0];
+      const capabilities = track.getCapabilities() as any;
+
+      if (capabilities.torch) {
+        try {
+          const newTorchState = !torchOn;
+          await track.applyConstraints({
+            advanced: [{ torch: newTorchState }],
+          } as any);
+          setTorchOn(newTorchState);
+        } catch (err) {
+          console.error("Failed to toggle torch:", err);
+          toast.error("Could not control the torch.");
+        }
+      } else {
+        toast.warning("Torch not supported on this device/camera.");
+      }
     } else {
-      toast.warning("Torch not supported on this device");
+      toast.error("Camera stream not available to control torch.");
     }
   };
 
   // Capture & predict
   const handleCapture = async () => {
-    if (!webcamRef.current || !model) return toast.error("Camera/model not ready!");
+    if (!webcamRef.current || !model) {
+      return toast.error("Camera or model not ready!");
+    }
 
     const screenshotBase64 = webcamRef.current.getScreenshot();
-    if (!screenshotBase64) return toast.error("Screenshot failed!");
+    if (!screenshotBase64) {
+      return toast.error("Screenshot failed!");
+    }
 
     const img = new Image();
     img.src = screenshotBase64;
@@ -362,51 +363,60 @@ export default function VinScanner() {
 
         if (classNameLower.includes("paper") && probability >= 0.9) {
           toast.warning(`VIN on Paper ❌ (${(probability * 100).toFixed(2)}%)`);
-          setIsScanning(false);
           return;
         }
 
-        setIsScanning(true);
-        canvas.toBlob(async (blob) => {
-          if (!blob) return toast.error("Blob creation failed");
+        // **FIXED**: Corrected typo from "matel vin" to "metal vin"
+        if (classNameLower.includes("matel vin") && probability >= 0.9) {
+          toast.success(`Metal detected ✅ (${(probability * 100).toFixed(2)}%)`);
+          setIsScanning(true);
 
-          try {
-            const formData = new FormData();
-            formData.append("image", blob, "vin_metal.jpg");
-
-            // Send to backend to get VIN
-            const vinResponse = await axios.post(
-              `${BASE_URL}/api/scan-vin`,
-              formData,
-              { headers: { "Content-Type": "multipart/form-data" } }
-            );
-
-            const vinScan = vinResponse.data.vin;
-            if (!vinScan) return toast.error("VIN scan failed");
-
-            if (mode === "checkin") {
-              setDetectedVin(vinScan);
-              setShowCheckInForm(true);
-              toast.success(`VIN detected ✅ ${vinScan}`);
+          canvas.toBlob(async (blob) => {
+            if (!blob) {
+                setIsScanning(false);
+                return toast.error("Blob creation failed");
             }
 
-            if (mode === "checkout") {
-              const vinDetails = await axios.get(
-                `${BASE_URL}/get-vin-details/${vinScan}`
+            try {
+              const formData = new FormData();
+              formData.append("image", blob, "vin_metal.jpg");
+
+              const vinResponse = await axios.post(
+                `${BASE_URL}/api/scan-vin`,
+                formData,
+                { headers: { "Content-Type": "multipart/form-data" } }
               );
-              setCheckoutData(vinDetails.data);
-              setShowCheckoutForm(true);
-              toast.success("VIN details fetched ✅");
+
+              const vinScan = vinResponse.data.vin;
+              if (!vinScan) {
+                  throw new Error("VIN not found in API response");
+              }
+
+              if (mode === "checkin") {
+                setDetectedVin(vinScan);
+                setShowCheckInForm(true);
+                toast.success(`VIN detected ✅ ${vinScan}`);
+              } else if (mode === "checkout") {
+                const vinDetails = await axios.get(
+                  `${BASE_URL}/get-vin-details/${vinScan}`
+                );
+                setCheckoutData(vinDetails.data);
+                setShowCheckoutForm(true);
+                toast.success("VIN details fetched ✅");
+              }
+            } catch (err) {
+              console.error("API Error:", err);
+              // **FIXED**: More accurate error message
+              toast.error(`${mode === "checkin" ? "Check-In" : "Check-Out"} failed.Invalid Vin Number.`);
+            } finally {
+              setIsScanning(false);
             }
-          } catch (err) {
-            console.error(err);
-            toast.error(`${mode === "checkin" ? "Check-In" : "Check-Out"} failed`);
-          } finally {
-            setIsScanning(false);
-          }
-        }, "image/jpeg", 0.95);
+          }, "image/jpeg", 0.95);
+        } else {
+             toast.warning(`Low confidence: ${topPrediction.className} (${(probability * 100).toFixed(2)}%)`);
+        }
       } catch (err) {
-        console.error(err);
+        console.error("Prediction error:", err);
         toast.error("Prediction failed!");
         setIsScanning(false);
       }
@@ -414,25 +424,32 @@ export default function VinScanner() {
   };
 
   const handleSwitchCamera = () => {
+    setTorchOn(false); // Reset torch state when switching cameras
     setFacingMode((prev) => (prev === "user" ? "environment" : "user"));
   };
 
   const handleBack = () => {
-    if (showCheckInForm) {
+    // Hide forms and go back to camera view
+    if (showCheckInForm || showCheckoutForm) {
       setShowCheckInForm(false);
-      setDetectedVin(null);
-    } else if (showCheckoutForm) {
       setShowCheckoutForm(false);
+      setDetectedVin(null);
       setCheckoutData(null);
+    // Deactivate camera and go back to initial screen
     } else if (isCameraActive) {
       setIsCameraActive(false);
       setMode(null);
+      setTorchOn(false);
+      setPredictions([]);
     }
   };
+  
+  const showInitialButtons = !isCameraActive && !showCheckInForm && !showCheckoutForm;
+  const showCameraControls = isCameraActive && !showCheckInForm && !showCheckoutForm;
+
 
   return (
     <div className="flex flex-col items-center p-4 space-y-4 w-full max-w-lg mx-auto">
-      {/* Camera */}
       {isCameraActive && (
         <div className="relative w-full max-w-md">
           <Webcam
@@ -441,95 +458,95 @@ export default function VinScanner() {
             screenshotFormat="image/jpeg"
             videoConstraints={{ facingMode }}
             className="w-full h-auto rounded-lg border shadow"
+            onUserMedia={() => console.log("Webcam stream is ready.")} // Useful for debugging
           />
           <div className="absolute border-2 border-yellow-400 w-[90%] max-w-[400px] h-[80px] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none rounded-md"></div>
         </div>
       )}
 
-      {/* Buttons - single row */}
       <div className="flex flex-wrap justify-center gap-2 w-full max-w-lg mt-3">
-        {!showCheckInForm && mode !== "checkout" && (
-          <button
-            onClick={() => { setMode("checkin"); setIsCameraActive(true); }}
-            disabled={isScanning}
-            className="px-3 py-2 text-sm bg-blue-500 text-white rounded-md shadow hover:bg-blue-600 transition disabled:opacity-50"
-          >
-            Check-In
-          </button>
+        {showInitialButtons && (
+            <>
+                <button
+                    onClick={() => { setMode("checkin"); setIsCameraActive(true); }}
+                    className="px-3 py-2 text-sm bg-blue-500 text-white rounded-md shadow hover:bg-blue-600 transition"
+                >
+                    VIN Check-In
+                </button>
+                <button
+                    onClick={() => { setMode("checkout"); setIsCameraActive(true); }}
+                    className="px-3 py-2 text-sm bg-green-500 text-white rounded-md shadow hover:bg-green-600 transition"
+                >
+                    VIN Check-Out
+                </button>
+            </>
         )}
 
-        {!showCheckoutForm && mode !== "checkin" && (
-          <button
-            onClick={() => { setMode("checkout"); setIsCameraActive(true); }}
-            disabled={isScanning}
-            className="px-3 py-2 text-sm bg-green-500 text-white rounded-md shadow hover:bg-green-600 transition disabled:opacity-50"
-          >
-            Check-Out
-          </button>
-        )}
-
-        {isCameraActive && (
-          <>
-            <button
-              onClick={handleSwitchCamera}
-              className="px-3 py-2 text-sm bg-purple-500 text-white rounded-md shadow hover:bg-purple-600 transition"
-            >
-              Switch
-            </button>
-            <button
-              onClick={handleToggleTorch}
-              className="px-3 py-2 text-sm bg-indigo-500 text-white rounded-md shadow hover:bg-indigo-600 transition"
-            >
-              {torchOn ? "Torch Off" : "Torch On"}
-            </button>
-            <button
-              onClick={handleCapture}
-              disabled={isScanning}
-              className="px-3 py-2 text-sm bg-yellow-500 text-white rounded-md shadow hover:bg-yellow-600 transition disabled:opacity-50"
-            >
-              {isScanning ? "..." : "Capture"}
-            </button>
-            <button
-              onClick={handleBack}
-              className="px-3 py-2 text-sm bg-red-500 text-white rounded-md shadow hover:bg-red-600 transition"
-            >
-              Back
-            </button>
-          </>
+        {showCameraControls && (
+            <>
+                <button
+                onClick={handleSwitchCamera}
+                className="px-3 py-2 text-sm bg-purple-500 text-white rounded-md shadow hover:bg-purple-600 transition"
+                >
+                Switch
+                </button>
+                <button
+                onClick={handleToggleTorch}
+                className={`px-3 py-2 text-sm text-white rounded-md shadow transition ${torchOn ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-indigo-500 hover:bg-indigo-600'}`}
+                >
+                Torch
+                </button>
+                <button
+                onClick={handleCapture}
+                disabled={isScanning}
+                className="px-3 py-2 text-sm bg-cyan-500 text-white rounded-md shadow hover:bg-cyan-600 transition disabled:opacity-50"
+                >
+                {isScanning ? "..." : "Capture"}
+                </button>
+                <button
+                onClick={handleBack}
+                className="px-3 py-2 text-sm bg-red-500 text-white rounded-md shadow hover:bg-red-600 transition"
+                >
+                Back
+                </button>
+            </>
         )}
       </div>
 
-      {/* Check-In Form */}
       {showCheckInForm && detectedVin && (
-        <VinForm
-          detectedVin={detectedVin}
-          onScanSaved={() => {
-            setShowCheckInForm(false);
-            setDetectedVin(null);
-            setMode(null);
-            setIsCameraActive(false);
-            toast.success("Check-In completed ✅");
-          }}
-        />
+        <>
+            <VinForm
+            detectedVin={detectedVin}
+            onScanSaved={() => {
+                setShowCheckInForm(false);
+                setDetectedVin(null);
+                setMode(null);
+                setIsCameraActive(false);
+                toast.success("Check-In completed ✅");
+            }}
+            />
+            <button onClick={handleBack} className="mt-2 px-3 py-2 text-sm bg-gray-500 text-white rounded-md shadow hover:bg-gray-600 transition">Back to Camera</button>
+        </>
       )}
 
-      {/* Check-Out Form */}
       {showCheckoutForm && checkoutData && (
-        <VinForm
-          detectedVin={checkoutData.vinNumber}
-          checkoutData={checkoutData}
-          onScanSaved={() => {
-            setShowCheckoutForm(false);
-            setCheckoutData(null);
-            setMode(null);
-            setIsCameraActive(false);
-            toast.success("Check-Out completed ✅");
-          }}
-        />
+        <>
+            <VinForm
+            detectedVin={checkoutData.vinNumber}
+            checkoutData={checkoutData}
+            onScanSaved={() => {
+                setShowCheckoutForm(false);
+                setCheckoutData(null);
+                setMode(null);
+                setIsCameraActive(false);
+                toast.success("Check-Out completed ✅");
+            }}
+            />
+            <button onClick={handleBack} className="mt-2 px-3 py-2 text-sm bg-gray-500 text-white rounded-md shadow hover:bg-gray-600 transition">Back to Camera</button>
+        </>
       )}
 
-      {/* Predictions */}
-      {predictions.length > 0 && (
+      {predictions.length > 0 && !showCheckInForm && !showCheckoutForm && (
         <div className="mt-4 w-full bg-gray-100 p-3 rounded-lg shadow">
           <h3 className="font-medium mb-2 text-gray-700">Predictions:</h3>
           {predictions.map((pred, idx) => (
@@ -540,7 +557,7 @@ export default function VinScanner() {
         </div>
       )}
 
-      <ToastContainer position="top-right" autoClose={3000} />
+      <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} />
     </div>
   );
 }
