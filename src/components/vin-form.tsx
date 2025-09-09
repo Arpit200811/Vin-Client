@@ -84,7 +84,7 @@ export default function VinForm({ detectedVin, onScanSaved, mode = "checkin", ch
       const scanData = {
         ...data,
         materialConfirmed: false,
-        scanStatus: "completed",
+        scanStatus: "complete",
         ...(location && {
           latitude: location.latitude.toString(),
           longitude: location.longitude.toString(),
