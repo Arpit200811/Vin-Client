@@ -94,7 +94,7 @@ export default function VinForm({ detectedVin, onScanSaved, mode = "checkin", ch
           longitude: location.longitude.toString(),
         }),
       };
-      await apiRequest("POST", `http://localhost:5000/api/scans`, scanData);
+      await apiRequest("POST", `${BASE_URL}/api/scans`, scanData);
     },
     onSuccess: () => {
       toast({ title: "Success", description: "VIN scan saved successfully!" });
