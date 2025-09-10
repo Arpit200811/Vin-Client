@@ -121,15 +121,36 @@ export default function Login() {
         <div className="my-6 border-t border-gray-200"></div>
 
         {/* Rules & Regulations */}
-        <div className="text-xs text-gray-500 space-y-2 max-h-40 overflow-y-auto p-3 bg-gray-50 rounded-lg border">
+        <div className="text-xs text-gray-500 space-y-2 max-h-64 overflow-y-auto p-3 bg-gray-50 rounded-lg border">
           <p className="font-semibold text-gray-700">Rules & Regulations:</p>
           <ul className="list-disc list-inside space-y-1">
             <li>Use valid credentials to access your account.</li>
             <li>Do not share your password with anyone.</li>
             <li>System access is monitored for security purposes.</li>
-            <li>Unauthorized use may result in account suspension.</li>
-            <li>
-              By logging in, you agree to our Terms & Privacy Policy.
+            <li className="text-red-600 font-semibold">
+               This system uses AI for VIN detection; AI predictions may sometimes be inaccurate.
+            </li>
+            <li className="text-blue-600 font-semibold">
+              Always verify your chassis number with the vehicle before saving the VIN in the system.
+            </li>
+            <li className="text-orange-600 font-semibold">
+               If an invalid VIN is detected twice, rotate the device ~45° and turn on the torch for accurate scanning.
+            </li>
+            <li>Ensure proper lighting and camera angle for the best VIN recognition results.</li>
+            <li className="text-purple-600 font-semibold">
+               Keep the device stable while scanning; shaking may result in inaccurate VIN detection.
+            </li>
+            <li className="text-teal-600 font-semibold">
+               Avoid scanning in direct sunlight or very dim lighting conditions.
+            </li>
+            <li className="text-yellow-700 font-semibold">
+              Torch and camera features may not be supported on all devices; system will warn if unsupported.
+            </li>
+            <li className="text-pink-600 font-semibold">
+               Stable internet connection is required for backend VIN scanning.
+            </li>
+            <li className="text-gray-700 font-semibold">
+               After app or AI model updates, older scans may need verification for accuracy.
             </li>
           </ul>
         </div>
