@@ -368,7 +368,7 @@ export default function VinScanner() {
         }
 
         // **FIXED**: Corrected typo from "matel vin" to "metal vin"
-        if (classNameLower.includes("matel vin") && probability >= 0.9) {
+        if (classNameLower.includes("metal vin") && probability >= 0.9) {
           toast.success(`Metal detected ✅ (${(probability * 100).toFixed(2)}%)`);
           setIsScanning(true);
 
