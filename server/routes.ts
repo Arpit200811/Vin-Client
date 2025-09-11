@@ -1,5 +1,4 @@
 import express from "express";
-import path from "path";
 import fs from "fs/promises";
 import { handleFileUpload } from "./fileUpload.js"; 
 import { storage } from "./storage.js";
