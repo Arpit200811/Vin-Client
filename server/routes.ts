@@ -1,12 +1,13 @@
 import express from "express";
 import fs from "fs/promises";
+import sharp from "sharp";
 import { handleFileUpload } from "./fileUpload.js"; 
 import { storage } from "./storage.js";
 import { insertVinScanSchema } from "../shared/schema.js";
 import { z } from "zod";
-import { performOcrWithApi, extractVinFromText, normalizeVinChars } from "./ocrUtils.js";
+import { performOcrWithApi, extractVinFromText, normalizeVinChars} from "./ocrUtils.js";
+import {detectScreenCapture} from './ocrUtils.js'
 const OCR_API_KEY: any = "K81527619388957";
-console.log("OCR API KEY:", "K81527619388957");
 export const appRouter = express.Router();
 appRouter.post("/api/scan-vin", async (req, res) => {
   try {
@@ -14,11 +15,17 @@ appRouter.post("/api/scan-vin", async (req, res) => {
       return res.status(400).json({ error: "No image uploaded" });
     }
     const file: any = req.files.image;
-
+    const buffer: Buffer = file.data;
+    const detection = await detectScreenCapture(buffer);
+    if (detection.isScreen) {
+      return res.status(403).json({
+        success: false,
+        message: "❌ Fake VIN detected (captured from screen).",
+        score: detection.score,
+      });
+    }
     const { filePath, publicUrl } = await handleFileUpload(file);
-
     const rawText = await performOcrWithApi(filePath, OCR_API_KEY);
-
     const vin = extractVinFromText(rawText);
 
     if (!vin || vin.length !== 17) {
@@ -40,6 +47,7 @@ appRouter.post("/api/scan-vin", async (req, res) => {
     res.status(500).json({ error: error.message || "OCR processing failed" });
   }
 });
+
 
 
   appRouter.post("/api/users", async (req, res) => {

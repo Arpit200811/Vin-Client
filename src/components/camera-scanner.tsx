@@ -277,8 +277,8 @@ export default function VinScanner() {
   const [checkoutData, setCheckoutData] = useState<any>(null);
   const [showCheckoutForm, setShowCheckoutForm] = useState(false);
 
-   const MODEL_URL = "https://teachablemachine.withgoogle.com/models/PR7m1U5pc/";
-  //const MODEL_URL = "https://teachablemachine.withgoogle.com/models/w1UvoFm_r/";
+  //  const MODEL_URL = "https://teachablemachine.withgoogle.com/models/PR7m1U5pc/";
+  const MODEL_URL = "https://teachablemachine.withgoogle.com/models/w1UvoFm_r/";
 
   // Load Teachable Machine model
   useEffect(() => {
