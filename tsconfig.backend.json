@@ -9,10 +9,11 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "types": ["node"],
-    "baseUrl": "./server",       // <- server folder ko base banao
+    "baseUrl": ".", 
     "paths": {
-      "@shared/*": ["../shared/*"]  // <- server ke relative path se shared
+      "@shared/*": ["shared/*"]
     }
   },
-  "include": ["server/**/*", "shared/**/*"]
+  "include": ["server/**/*", "shared/**/*", "types/**/*"],
+  "exclude": ["node_modules", "dist", "build"]
 }
