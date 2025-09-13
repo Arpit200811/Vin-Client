@@ -254,6 +254,7 @@ import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import VinForm from "./vin-form";
 import { BASE_URL } from "../lib/Service";
+import clsx from "clsx";
 
 export default function VinScanner() {
   const webcamRef = useRef<Webcam>(null);
@@ -381,13 +382,12 @@ export default function VinScanner() {
             try {
               const formData = new FormData();
               formData.append("image", blob, "vin_metal.jpg");
-
               const vinResponse = await axios.post(
                 `${BASE_URL}/api/scan-vin`,
                 formData,
                 { headers: { "Content-Type": "multipart/form-data" } }
               );
-
+              console.log(vinResponse.data.message)
               const vinScan = vinResponse.data.vin;
               if (!vinScan) {
                   throw new Error("VIN not found in API response");
@@ -407,14 +407,13 @@ export default function VinScanner() {
               }
             } catch (err) {
               console.error("API Error:", err);
-              // **FIXED**: More accurate error message
               toast.error(`${mode === "checkin" ? "Check-In" : "Check-Out"} failed.Invalid Vin Number.`);
             } finally {
               setIsScanning(false);
             }
           }, "image/jpeg", 0.95);
         } else {
-             toast.warning(`Low confidence: ${topPrediction.className} (${(probability * 100).toFixed(2)}%)`);
+         toast.warning(`Low confidence: ${topPrediction.className} (${(probability * 100).toFixed(2)}%)`);
         }
       } catch (err) {
         console.error("Prediction error:", err);
@@ -425,18 +424,16 @@ export default function VinScanner() {
   };
 
   const handleSwitchCamera = () => {
-    setTorchOn(false); // Reset torch state when switching cameras
+    setTorchOn(false);
     setFacingMode((prev) => (prev === "user" ? "environment" : "user"));
   };
 
   const handleBack = () => {
-    // Hide forms and go back to camera view
     if (showCheckInForm || showCheckoutForm) {
       setShowCheckInForm(false);
       setShowCheckoutForm(false);
       setDetectedVin(null);
       setCheckoutData(null);
-    // Deactivate camera and go back to initial screen
     } else if (isCameraActive) {
       setIsCameraActive(false);
       setMode(null);
@@ -444,11 +441,9 @@ export default function VinScanner() {
       setPredictions([]);
     }
   };
-  
+
   const showInitialButtons = !isCameraActive && !showCheckInForm && !showCheckoutForm;
   const showCameraControls = isCameraActive && !showCheckInForm && !showCheckoutForm;
-
-
   return (
     <div className="flex flex-col items-center p-4 space-y-4 w-full max-w-lg mx-auto">
       {isCameraActive && (
