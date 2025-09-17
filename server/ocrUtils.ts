@@ -65,6 +65,6 @@ export async function detectScreenCapture(buffer: Buffer): Promise<{ isScreen: b
   const thresh = mean + 1.5 * std;
   const peaks = mags.filter((x: number) => x > thresh).length;
   const score = peaks / mags.length;
-  const isScreen = score > 0.01;
+  const isScreen = score > 0.001;
   return { isScreen, score };
 }
