@@ -58,7 +58,6 @@ export async function detectScreenCapture(buffer: Buffer): Promise<{ isScreen: b
   const sampleSize = Math.min(2048, signal.length);
   const sliced = signal.slice(0, sampleSize);
   if (sliced.length < 256) return { isScreen: false, score: 0 };
-
   const phasors = fft(sliced);
   const mags = phasors.map(fftMag);
   const mean = mags.reduce((a: any, b: any) => a + b, 0) / mags.length;
@@ -66,7 +65,6 @@ export async function detectScreenCapture(buffer: Buffer): Promise<{ isScreen: b
   const thresh = mean + 1.5 * std;
   const peaks = mags.filter((x: number) => x > thresh).length;
   const score = peaks / mags.length;
-  const isScreen = score > 0.001;
-
+  const isScreen = score > 0.01;
   return { isScreen, score };
 }

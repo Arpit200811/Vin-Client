@@ -367,8 +367,6 @@ export default function VinScanner() {
           toast.warning(`VIN on Paper ❌ (${(probability * 100).toFixed(2)}%)`);
           return;
         }
-
-        // **FIXED**: Corrected typo from "matel vin" to "metal vin"
         if (classNameLower.includes("metal vin") && probability >= 0.9) {
           toast.success(`Metal detected ✅ (${(probability * 100).toFixed(2)}%)`);
           setIsScanning(true);
@@ -378,12 +376,11 @@ export default function VinScanner() {
                 setIsScanning(false);
                 return toast.error("Blob creation failed");
             }
-
             try {
               const formData = new FormData();
               formData.append("image", blob, "vin_metal.jpg");
               const vinResponse = await axios.post(
-                `${BASE_URL}/api/scan-vin`,
+                `http://localhost:5000/api/scan-vin`,
                 formData,
                 { headers: { "Content-Type": "multipart/form-data" } }
               );

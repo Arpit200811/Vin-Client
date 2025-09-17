@@ -17,6 +17,7 @@ appRouter.post("/api/scan-vin", async (req, res) => {
     const file: any = req.files.image;
     const buffer: Buffer = file.data;
     const detection = await detectScreenCapture(buffer);
+    console.log("########",detection.score)
     if (detection.isScreen) {
       return res.status(403).json({
         success: false,
@@ -24,6 +25,7 @@ appRouter.post("/api/scan-vin", async (req, res) => {
         score: detection.score,
       });
     }
+    
     const { filePath, publicUrl } = await handleFileUpload(file);
     const rawText = await performOcrWithApi(filePath, OCR_API_KEY);
     const vin = extractVinFromText(rawText);
