@@ -380,7 +380,7 @@ export default function VinScanner() {
               const formData = new FormData();
               formData.append("image", blob, "vin_metal.jpg");
               const vinResponse = await axios.post(
-                `http://localhost:5000/api/scan-vin`,
+                `${BASE_URL}/api/scan-vin`,
                 formData,
                 { headers: { "Content-Type": "multipart/form-data" } }
               );
