@@ -3,6 +3,7 @@ import FormData from "form-data";
 import { createReadStream } from "fs";
 import sharp from "sharp";
 import { fft } from "fft-js";
+import exifParser from "exif-parser";
 const VALID_VIN_PREFIXES = ["MD", "1M", "2H", "3N", "5Y", "JH", "KL"];
 const OCR_API_URL = "https://api.ocr.space/parse/image";
 
@@ -41,30 +42,72 @@ export function extractVinFromText(rawText: any): any {
   if (vinMatches.length === 0) return "";
   return vinMatches.find(v => VALID_VIN_PREFIXES.some(prefix => v.startsWith(prefix))) || vinMatches[0];
 }
-
-
 function fftMag([re, im]: [number, number]): number {
   return Math.sqrt(re * re + im * im);
 }
+// export async function detectScreenCapture(buffer: Buffer): Promise<{ isScreen: boolean; score: number }> {
+//   const { data } = await sharp(buffer)
+//     .resize(512, 512, { fit: "inside" })
+//     .grayscale()
+//     .raw()
+//     .toBuffer({ resolveWithObject: true });
 
-export async function detectScreenCapture(buffer: Buffer): Promise<{ isScreen: boolean; score: number }> {
+//   const signal: number[] = Array.from(data);
+//   const sampleSize = Math.min(2048, signal.length);
+//   const sliced = signal.slice(0, sampleSize);
+//   if (sliced.length < 256) return { isScreen: false, score: 0 };
+//   const phasors = fft(sliced);
+//   const mags = phasors.map(fftMag);
+//   const mean = mags.reduce((a: any, b: any) => a + b, 0) / mags.length;
+//   const std = Math.sqrt(mags.map((x: number) => (x - mean) ** 2).reduce((a: any, b: any) => a + b, 0) / mags.length);
+//   const thresh = mean + 1.5 * std;
+//   const peaks = mags.filter((x: number) => x > thresh).length;
+//   const score = peaks / mags.length;
+//   const isScreen = score > 0.01;
+//   return { isScreen, score };
+// }
+export async function detectScreenCapture(
+  buffer: Buffer
+): Promise<{ isScreen: boolean; score: number; reasons: string[] }> {
+  const reasons: string[] = [];
   const { data } = await sharp(buffer)
     .resize(512, 512, { fit: "inside" })
     .grayscale()
     .raw()
     .toBuffer({ resolveWithObject: true });
-
   const signal: number[] = Array.from(data);
   const sampleSize = Math.min(2048, signal.length);
   const sliced = signal.slice(0, sampleSize);
-  if (sliced.length < 256) return { isScreen: false, score: 0 };
+  if (sliced.length < 256)
+    return { isScreen: false, score: 0, reasons: ["Too small image"] };
   const phasors = fft(sliced);
   const mags = phasors.map(fftMag);
-  const mean = mags.reduce((a: any, b: any) => a + b, 0) / mags.length;
-  const std = Math.sqrt(mags.map((x: number) => (x - mean) ** 2).reduce((a: any, b: any) => a + b, 0) / mags.length);
+  const mean = mags.reduce((a, b) => a + b, 0) / mags.length;
+  const std = Math.sqrt(
+    mags.map((x: number) => (x - mean) ** 2).reduce((a, b) => a + b, 0) /
+      mags.length
+  );
   const thresh = mean + 1.5 * std;
   const peaks = mags.filter((x: number) => x > thresh).length;
-  const score = peaks / mags.length;
-  const isScreen = score > 0.001;
-  return { isScreen, score };
+  const fftScore = peaks / mags.length;
+  if (fftScore > 0.01) reasons.push("Moiré/Screen-like frequency detected");
+  const noiseLevel =
+    Math.sqrt(
+      sliced.map((x) => (x - mean) ** 2).reduce((a, b) => a + b, 0) /
+        sliced.length
+    ) / 255;
+  if (noiseLevel < 0.02 || noiseLevel > 0.25)
+    reasons.push("Abnormal noise pattern");
+  try {
+    const parser = exifParser.create(buffer);
+    const result = parser.parse();
+    if (!result.tags || !result.tags.Make) {
+      reasons.push("Missing EXIF metadata");
+    }
+  } catch {
+    reasons.push("No EXIF metadata");
+  }
+  const finalScore = fftScore + noiseLevel;
+  const isScreen = reasons.length > 0 && fftScore > 0.01;
+  return { isScreen, score: finalScore, reasons };
 }
