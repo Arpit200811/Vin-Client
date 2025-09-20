@@ -1,6 +1,5 @@
 import express from "express";
 import fs from "fs/promises";
-import sharp from "sharp";
 import { handleFileUpload } from "./fileUpload.js"; 
 import { storage } from "./storage.js";
 import { insertVinScanSchema } from "../shared/schema.js";
@@ -9,43 +8,6 @@ import { performOcrWithApi, extractVinFromText, normalizeVinChars} from "./ocrUt
 import {detectScreenCapture} from './ocrUtils.js'
 const OCR_API_KEY: any = "K81527619388957";
 export const appRouter = express.Router();
-// appRouter.post("/api/scan-vin", async (req, res) => {
-//   try {
-//     if (!req.files || !req.files.image) {
-//       return res.status(400).json({ error: "No image uploaded" });
-//     }
-//     const file: any = req.files.image;
-//     const buffer: Buffer = file.data;
-//     const detection = await detectScreenCapture(buffer);
-//     console.log("########",detection.score)
-//     if (detection.isScreen) {
-//       return res.status(403).json({
-//         success: false,
-//         message: "❌ Fake VIN detected (captured from screen).",
-//         score: detection.score,
-//       });
-//     }
-//     const { filePath, publicUrl } = await handleFileUpload(file);
-//     const rawText = await performOcrWithApi(filePath, OCR_API_KEY);
-//     const vin = extractVinFromText(rawText);
-//     if (!vin || vin.length !== 17) {
-//       return res.status(404).json({
-//         error: "No valid 17-character VIN found in the image.",
-//         rawText: normalizeVinChars(rawText.toUpperCase()).replace(/[^A-Z0-9]/g, ""),
-//       });
-//     }
-//     res.json({ vin, fileUrl: publicUrl });
-//     await fs.unlink(filePath).catch((err: any) =>
-//       console.error("Failed to clean up file:", err)
-//     );
-
-//   } catch (error: any) {
-//     console.error("Scan processing error:", error);
-//     res.status(500).json({ error: error.message || "OCR processing failed" });
-//   }
-// });
-
-
 appRouter.post("/api/scan-vin", async (req, res) => {
   try {
     if (!req.files || !req.files.image) {
@@ -55,7 +17,6 @@ appRouter.post("/api/scan-vin", async (req, res) => {
     const buffer: Buffer = file.data;
     const detection = await detectScreenCapture(buffer);
     console.log("######## SCORE:", detection.score, "Reasons:", detection.reasons);
-
     if (detection.isScreen) {
       return res.status(403).json({
         success: false,
@@ -82,7 +43,6 @@ appRouter.post("/api/scan-vin", async (req, res) => {
     res.status(500).json({ error: error.message || "OCR processing failed" });
   }
 });
-
   appRouter.post("/api/users", async (req, res) => {
   try {
     const { email, firstName, lastName, role, password } = req?.body;
